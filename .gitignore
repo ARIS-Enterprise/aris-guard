@@ -1,3 +1,8 @@
+# Private internal agent workflows & kits
+AGENTS md/
+AGENTS.md
+AGENTS*.md
+
 # Rust & Cargo
 /target
 src-tauri/target/

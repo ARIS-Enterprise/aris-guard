@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Lint, Test & Typecheck
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Check Rust formatting
+        run: |
+          cd src-tauri
+          cargo fmt --check
+
+      - name: Run Clippy
+        run: |
+          cd src-tauri
+          cargo clippy -- -D warnings
+
+      - name: Run Rust unit tests
+        run: |
+          cd src-tauri
+          cargo test
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Frontend Lint
+        run: npm run lint
+
+      - name: Frontend Typecheck
+        run: npm run typecheck
+
+      - name: Frontend Build
+        run: npm run build
