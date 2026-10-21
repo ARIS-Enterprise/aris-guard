@@ -12,12 +12,21 @@ pub fn show_or_create_window(app: &AppHandle) -> Result<(), Box<dyn std::error::
         let _ = window.unminimize();
         let _ = window.set_focus();
     } else {
-        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-            .title("ARIS Guard")
-            .inner_size(1000.0, 680.0)
-            .min_inner_size(860.0, 560.0)
-            .resizable(true)
-            .build()?;
+        let mut builder = tauri::WebviewWindowBuilder::new(
+            app,
+            "main",
+            tauri::WebviewUrl::App("index.html".into()),
+        )
+        .title("ARIS Guard")
+        .inner_size(1000.0, 680.0)
+        .min_inner_size(860.0, 560.0)
+        .resizable(true);
+
+        if let Some(icon) = app.default_window_icon() {
+            builder = builder.icon(icon.clone())?;
+        }
+
+        builder.build()?;
     }
     Ok(())
 }
@@ -69,13 +78,16 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             {
                 let app = tray.app_handle();
                 if let Err(e) = show_or_create_window(app) {
-                    tracing::error!("Failed to open main window on tray click: {e}");
+                    tracing::error!("Failed to open main window on left-click: {e}");
                 }
             }
         });
 
-    let icon = tauri::include_image!("icons/32x32.png");
-    tray_builder.icon(icon).build(app)?;
+    let _tray = if let Some(icon) = app.default_window_icon() {
+        tray_builder.icon(icon.clone()).build(app)?
+    } else {
+        tray_builder.build(app)?
+    };
 
     Ok(())
 }

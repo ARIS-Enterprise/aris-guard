@@ -141,7 +141,17 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
-            commands::set_settings
+            commands::set_settings,
+            commands::get_health_metrics,
+            commands::scan_file_path,
+            commands::scan_file_payload,
+            commands::get_recent_scans,
+            commands::preview_cleanup,
+            commands::run_cleanup,
+            commands::run_smart_fix,
+            commands::get_startup_items,
+            commands::toggle_startup_item,
+            commands::get_activity_history,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ARIS Guard application");
@@ -153,8 +163,6 @@ fn main() {
                     tracing::debug!("Preventing exit because agent is running in tray");
                     api.prevent_exit();
                 }
-            } else {
-                api.prevent_exit();
             }
         }
     });

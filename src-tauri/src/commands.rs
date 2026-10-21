@@ -1,8 +1,13 @@
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
+use crate::cleaner::{self, CleanupResult, CleanupSummary};
 use crate::config::AppSettings;
+use crate::db::Database;
 use crate::errors::AppError;
+use crate::health::{self, ActivityEvent, SystemHealthMetrics};
+use crate::scanner::{self, ScanResultItem};
+use crate::startup_mgr::{self, StartupAppItem};
 
 pub struct AppConfigState {
     pub settings: Arc<Mutex<AppSettings>>,
@@ -31,4 +36,92 @@ pub fn set_settings(
         .map_err(|e| AppError::Internal(format!("Failed to lock settings state: {e}")))?;
     *settings = new_settings;
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_health_metrics(
+    db: State<Database>,
+    state: State<AppConfigState>,
+) -> Result<SystemHealthMetrics, AppError> {
+    let settings = state
+        .settings
+        .lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock settings: {e}")))?;
+    Ok(health::get_health_metrics(&db, &settings))
+}
+
+#[tauri::command]
+pub fn scan_file_path(path: String, db: State<Database>) -> Result<ScanResultItem, AppError> {
+    scanner::scan_file_path(&path, &db)
+}
+
+#[tauri::command]
+pub fn scan_file_payload(
+    file_name: String,
+    file_size: u64,
+    content_base64: Option<String>,
+    db: State<Database>,
+) -> Result<ScanResultItem, AppError> {
+    let bytes = content_base64.map(|b64| b64.into_bytes());
+    scanner::scan_virtual_payload(&file_name, file_size, bytes.as_deref(), &db)
+}
+
+#[tauri::command]
+pub fn get_recent_scans(db: State<Database>) -> Result<Vec<ScanResultItem>, AppError> {
+    scanner::get_recent_scans(&db, 20)
+}
+
+#[tauri::command]
+pub fn preview_cleanup() -> Result<CleanupSummary, AppError> {
+    Ok(cleaner::preview_cleanup())
+}
+
+#[tauri::command]
+pub fn run_cleanup(
+    categories: Vec<String>,
+    db: State<Database>,
+) -> Result<CleanupResult, AppError> {
+    cleaner::execute_cleanup(&categories, &db)
+}
+
+#[tauri::command]
+pub fn run_smart_fix(db: State<Database>) -> Result<CleanupResult, AppError> {
+    let cats = vec![
+        "user_temp".to_string(),
+        "crash_dumps".to_string(),
+        "thumbnails".to_string(),
+        "wer_reports".to_string(),
+    ];
+    let result = cleaner::execute_cleanup(&cats, &db)?;
+
+    // Log smart fix event
+    let conn = db.connection();
+    if let Ok(guard) = conn.lock() {
+        let _ = guard.execute(
+            "INSERT INTO actions_log (id, kind, detail_json, created_at) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![
+                uuid::Uuid::new_v4().to_string(),
+                "smart_fix",
+                "{\"optimized\": true}",
+                chrono::Utc::now().to_rfc3339()
+            ],
+        );
+    }
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn get_startup_items() -> Result<Vec<StartupAppItem>, AppError> {
+    Ok(startup_mgr::list_startup_apps())
+}
+
+#[tauri::command]
+pub fn toggle_startup_item(name: String, enabled: bool) -> Result<(), AppError> {
+    startup_mgr::toggle_startup_app(&name, enabled)
+}
+
+#[tauri::command]
+pub fn get_activity_history(db: State<Database>) -> Result<Vec<ActivityEvent>, AppError> {
+    health::get_activity_events(&db)
 }

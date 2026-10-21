@@ -1,5 +1,19 @@
 import { create } from "zustand";
-import { AppSettings, getSettings, setSettings } from "./ipc";
+import {
+  AppSettings,
+  getSettings,
+  setSettings,
+  SystemHealthMetrics,
+  getHealthMetrics,
+  ScanResultItem,
+  getRecentScans,
+  StartupAppItem,
+  getStartupItems,
+  ActivityEvent,
+  getActivityHistory,
+  runSmartFix,
+  CleanupResult,
+} from "./ipc";
 import { Language } from "./i18n";
 
 export type NavPage =
@@ -15,12 +29,21 @@ interface AppState {
   language: Language;
   theme: "system" | "dark" | "light";
   settings: AppSettings | null;
+  metrics: SystemHealthMetrics | null;
+  recentScans: ScanResultItem[];
+  startupItems: StartupAppItem[];
+  activityEvents: ActivityEvent[];
   loading: boolean;
+  isFixing: boolean;
+
   setActivePage: (page: NavPage) => void;
   setLanguage: (lang: Language) => void;
   setTheme: (theme: "system" | "dark" | "light") => void;
   fetchSettings: () => Promise<void>;
   updateSettings: (newSettings: AppSettings) => Promise<void>;
+  refreshAllData: () => Promise<void>;
+  triggerSmartFix: () => Promise<CleanupResult | null>;
+  addScanResult: (item: ScanResultItem) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -28,7 +51,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   language: "en",
   theme: "dark",
   settings: null,
+  metrics: null,
+  recentScans: [],
+  startupItems: [],
+  activityEvents: [],
   loading: true,
+  isFixing: false,
 
   setActivePage: (activePage) => set({ activePage }),
 
@@ -50,7 +78,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       root.classList.remove("dark");
       root.setAttribute("data-theme", "light");
     } else {
-      // System default
       root.classList.add("dark");
       root.removeAttribute("data-theme");
     }
@@ -70,7 +97,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         theme: settings.theme as "system" | "dark" | "light",
         loading: false,
       });
-      // apply theme
+
       const root = document.documentElement;
       if (settings.theme === "light") {
         root.classList.remove("dark");
@@ -79,8 +106,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         root.classList.add("dark");
         root.removeAttribute("data-theme");
       }
+
+      await get().refreshAllData();
     } catch (err) {
-      console.error("Failed to load settings from Rust core:", err);
+      console.error("Failed to load settings:", err);
       set({ loading: false });
     }
   },
@@ -92,5 +121,49 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.error("Failed to update settings:", err);
     }
+  },
+
+  refreshAllData: async () => {
+    try {
+      const [metrics, recentScans, startupItems, activityEvents] =
+        await Promise.allSettled([
+          getHealthMetrics(),
+          getRecentScans(),
+          getStartupItems(),
+          getActivityHistory(),
+        ]);
+
+      set({
+        metrics: metrics.status === "fulfilled" ? metrics.value : null,
+        recentScans:
+          recentScans.status === "fulfilled" ? recentScans.value : [],
+        startupItems:
+          startupItems.status === "fulfilled" ? startupItems.value : [],
+        activityEvents:
+          activityEvents.status === "fulfilled" ? activityEvents.value : [],
+      });
+    } catch (err) {
+      console.error("Failed refreshing app data:", err);
+    }
+  },
+
+  triggerSmartFix: async () => {
+    try {
+      set({ isFixing: true });
+      const result = await runSmartFix();
+      await get().refreshAllData();
+      set({ isFixing: false });
+      return result;
+    } catch (err) {
+      console.error("Smart fix failed:", err);
+      set({ isFixing: false });
+      return null;
+    }
+  },
+
+  addScanResult: (item: ScanResultItem) => {
+    set((state) => ({
+      recentScans: [item, ...state.recentScans.filter((s) => s.id !== item.id)],
+    }));
   },
 }));

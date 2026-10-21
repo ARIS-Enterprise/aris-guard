@@ -15,6 +15,9 @@ pub enum AppError {
     #[error("Validation error: {0}")]
     Validation(String),
 
+    #[error("Not found: {0}")]
+    NotFound(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -31,6 +34,7 @@ impl Serialize for AppError {
             AppError::Db(_) => "DB_ERROR",
             AppError::Config(_) => "CONFIG_ERROR",
             AppError::Validation(_) => "VALIDATION_ERROR",
+            AppError::NotFound(_) => "NOT_FOUND",
             AppError::Internal(_) => "INTERNAL_ERROR",
         };
         state.serialize_field("code", code)?;
