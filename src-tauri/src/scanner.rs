@@ -284,6 +284,8 @@ pub fn get_recent_scans(db: &Database, limit: usize) -> Result<Vec<ScanResultIte
     for row in rows.flatten() {
         items.push(row);
     }
+    drop(stmt);
+    drop(guard);
 
     // Seed baseline initial entries if table is completely empty
     if items.is_empty() {
@@ -344,4 +346,17 @@ pub fn get_recent_scans(db: &Database, limit: usize) -> Result<Vec<ScanResultIte
     }
 
     Ok(items)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_recent_scans_seed() {
+        let db = Database::open_in_memory().expect("open in-memory db failed");
+        let items = get_recent_scans(&db, 10).expect("get_recent_scans failed");
+        assert_eq!(items.len(), 4);
+        assert_eq!(items[0].verdict, "clean");
+    }
 }

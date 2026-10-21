@@ -47,6 +47,13 @@ fn main() {
     let log_dir = data_dir.join("logs");
     let db_path = data_dir.join("aris-guard.db");
     let config_path = data_dir.join("settings.json");
+    let panic_log_path = data_dir.join("panic.log");
+
+    std::panic::set_hook(Box::new(move |info| {
+        let msg = format!("PANIC: {info}\n");
+        eprintln!("{msg}");
+        let _ = std::fs::write(&panic_log_path, &msg);
+    }));
 
     if let Err(e) = logger::init_logging(&log_dir) {
         eprintln!("Failed to initialize logger: {e}");
@@ -80,7 +87,7 @@ fn main() {
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            tracing::info!("Second instance detected; focusing or recreating window");
+            tracing::info!("Second instance detected; focusing or showing main window");
             if let Err(e) = tray::show_or_create_window(app) {
                 tracing::error!("Failed to focus main window for second instance: {e}");
             }
@@ -121,11 +128,9 @@ fn main() {
 
             let args: Vec<String> = std::env::args().collect();
             if args.iter().any(|arg| arg == "--minimized") {
-                tracing::info!(
-                    "Application launched with --minimized flag; destroying initial window"
-                );
+                tracing::info!("Application launched with --minimized flag; hiding initial window");
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.destroy();
+                    let _ = window.hide();
                 }
             }
             Ok(())
@@ -133,9 +138,9 @@ fn main() {
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                tracing::info!("Destroying WebView2 window to release memory budget");
-                if let Err(e) = window.destroy() {
-                    tracing::error!("Failed to destroy webview window: {e}");
+                tracing::info!("Hiding WebView window to system tray");
+                if let Err(e) = window.hide() {
+                    tracing::error!("Failed to hide window: {e}");
                 }
             }
         })

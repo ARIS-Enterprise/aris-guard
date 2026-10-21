@@ -31,5 +31,5 @@ sha2 = "0.10"
 opt-level = "z"
 lto = true
 codegen-units = 1
-panic = "abort"
+panic = "unwind"
 strip = true

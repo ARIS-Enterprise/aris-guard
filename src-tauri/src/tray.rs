@@ -12,7 +12,7 @@ pub fn show_or_create_window(app: &AppHandle) -> Result<(), Box<dyn std::error::
         let _ = window.unminimize();
         let _ = window.set_focus();
     } else {
-        let mut builder = tauri::WebviewWindowBuilder::new(
+        let builder = tauri::WebviewWindowBuilder::new(
             app,
             "main",
             tauri::WebviewUrl::App("index.html".into()),
@@ -21,10 +21,6 @@ pub fn show_or_create_window(app: &AppHandle) -> Result<(), Box<dyn std::error::
         .inner_size(1000.0, 680.0)
         .min_inner_size(860.0, 560.0)
         .resizable(true);
-
-        if let Some(icon) = app.default_window_icon() {
-            builder = builder.icon(icon.clone())?;
-        }
 
         builder.build()?;
     }
@@ -39,7 +35,7 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let menu = Menu::with_items(app, &[&open_item, &pause_item, &separator, &quit_item])?;
 
-    let tray_builder = TrayIconBuilder::new()
+    let mut tray_builder = TrayIconBuilder::with_id("main-tray")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .tooltip("ARIS Guard")
@@ -83,11 +79,12 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
-    let _tray = if let Some(icon) = app.default_window_icon() {
-        tray_builder.icon(icon.clone()).build(app)?
-    } else {
-        tray_builder.build(app)?
-    };
+    if let Some(icon) = app.default_window_icon() {
+        tray_builder = tray_builder.icon(icon.clone());
+    }
+
+    let tray = tray_builder.build(app)?;
+    app.manage(tray);
 
     Ok(())
 }
