@@ -86,6 +86,50 @@ export interface ActivityEvent {
   time: string;
 }
 
+export interface InstalledApp {
+  id: string;
+  name: string;
+  version: string;
+  publisher: string;
+  install_location: string;
+  uninstall_string: string;
+  quiet_uninstall_string: string;
+  estimated_size_bytes: number;
+  estimated_size_formatted: string;
+  install_date: string;
+  registry_source: string;
+  registry_key_path: string;
+}
+
+export interface AppLeftover {
+  id: string;
+  kind: "Directory" | "File" | "RegistryKey";
+  path: string;
+  category: string;
+  size_bytes: number;
+  size_formatted: string;
+  description: string;
+  selected: boolean;
+}
+
+export interface AppLeftoverScanResult {
+  app_id: string;
+  app_name: string;
+  total_leftovers: number;
+  total_bytes: number;
+  total_formatted: string;
+  leftovers: AppLeftover[];
+}
+
+export interface DeepCleanResult {
+  app_name: string;
+  removed_items: number;
+  freed_bytes: number;
+  freed_formatted: string;
+  errors: string[];
+  message: string;
+}
+
 export async function getSettings(): Promise<AppSettings> {
   return await invoke<AppSettings>("get_settings");
 }
@@ -144,3 +188,36 @@ export async function toggleStartupItem(
 export async function getActivityHistory(): Promise<ActivityEvent[]> {
   return await invoke<ActivityEvent[]>("get_activity_history");
 }
+
+export async function listInstalledApps(): Promise<InstalledApp[]> {
+  return await invoke<InstalledApp[]>("list_installed_apps");
+}
+
+export async function scanAppLeftovers(
+  appName: string,
+  publisher: string,
+  installLocation: string,
+): Promise<AppLeftoverScanResult> {
+  return await invoke<AppLeftoverScanResult>("scan_app_leftovers", {
+    appName,
+    publisher,
+    installLocation,
+  });
+}
+
+export async function runOfficialUninstaller(
+  uninstallString: string,
+): Promise<string> {
+  return await invoke<string>("run_official_uninstaller", { uninstallString });
+}
+
+export async function deleteAppLeftovers(
+  appName: string,
+  items: AppLeftover[],
+): Promise<DeepCleanResult> {
+  return await invoke<DeepCleanResult>("delete_app_leftovers", {
+    appName,
+    items,
+  });
+}
+

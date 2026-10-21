@@ -12,7 +12,7 @@ pub fn show_or_create_window(app: &AppHandle) -> Result<(), Box<dyn std::error::
         let _ = window.unminimize();
         let _ = window.set_focus();
     } else {
-        let builder = tauri::WebviewWindowBuilder::new(
+        let mut builder = tauri::WebviewWindowBuilder::new(
             app,
             "main",
             tauri::WebviewUrl::App("index.html".into()),
@@ -21,6 +21,10 @@ pub fn show_or_create_window(app: &AppHandle) -> Result<(), Box<dyn std::error::
         .inner_size(1000.0, 680.0)
         .min_inner_size(860.0, 560.0)
         .resizable(true);
+
+        if let Some(icon) = app.default_window_icon() {
+            builder = builder.icon(icon.clone())?;
+        }
 
         builder.build()?;
     }

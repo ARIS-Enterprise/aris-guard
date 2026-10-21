@@ -8,6 +8,7 @@ use crate::errors::AppError;
 use crate::health::{self, ActivityEvent, SystemHealthMetrics};
 use crate::scanner::{self, ScanResultItem};
 use crate::startup_mgr::{self, StartupAppItem};
+use crate::uninstaller::{self, AppLeftover, AppLeftoverScanResult, DeepCleanResult, InstalledApp};
 
 pub struct AppConfigState {
     pub settings: Arc<Mutex<AppSettings>>,
@@ -124,4 +125,36 @@ pub fn toggle_startup_item(name: String, enabled: bool) -> Result<(), AppError> 
 #[tauri::command]
 pub fn get_activity_history(db: State<Database>) -> Result<Vec<ActivityEvent>, AppError> {
     health::get_activity_events(&db)
+}
+
+#[tauri::command]
+pub fn list_installed_apps() -> Result<Vec<InstalledApp>, AppError> {
+    Ok(uninstaller::list_installed_apps())
+}
+
+#[tauri::command]
+pub fn scan_app_leftovers(
+    app_name: String,
+    publisher: String,
+    install_location: String,
+) -> Result<AppLeftoverScanResult, AppError> {
+    Ok(uninstaller::scan_app_leftovers(
+        &app_name,
+        &publisher,
+        &install_location,
+    ))
+}
+
+#[tauri::command]
+pub fn run_official_uninstaller(uninstall_string: String) -> Result<String, AppError> {
+    uninstaller::run_official_uninstaller(&uninstall_string)
+}
+
+#[tauri::command]
+pub fn delete_app_leftovers(
+    app_name: String,
+    items: Vec<AppLeftover>,
+    db: State<Database>,
+) -> Result<DeepCleanResult, AppError> {
+    uninstaller::delete_app_leftovers(&app_name, items, &db)
 }

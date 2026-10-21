@@ -25,6 +25,7 @@ mod scanner;
 mod scheduler;
 mod startup_mgr;
 mod tray;
+mod uninstaller;
 mod watcher;
 mod win_elevate;
 mod win_fs;
@@ -126,6 +127,12 @@ fn main() {
                 }
             }
 
+            if let Some(window) = app.get_webview_window("main") {
+                if let Some(icon) = app.default_window_icon() {
+                    let _ = window.set_icon(icon.clone());
+                }
+            }
+
             let args: Vec<String> = std::env::args().collect();
             if args.iter().any(|arg| arg == "--minimized") {
                 tracing::info!("Application launched with --minimized flag; hiding initial window");
@@ -157,6 +164,10 @@ fn main() {
             commands::get_startup_items,
             commands::toggle_startup_item,
             commands::get_activity_history,
+            commands::list_installed_apps,
+            commands::scan_app_leftovers,
+            commands::run_official_uninstaller,
+            commands::delete_app_leftovers,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ARIS Guard application");

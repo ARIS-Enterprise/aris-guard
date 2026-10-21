@@ -33,12 +33,16 @@ export default function Sidebar() {
       }`}
     >
       {/* Brand Header */}
-      <div className="flex h-16 items-center gap-3 px-5 border-b border-border">
+      <div
+        className={`flex h-16 items-center gap-3 border-b border-border ${
+          collapsed ? "justify-center px-0" : "px-5"
+        }`}
+      >
         <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full overflow-hidden ring-1 ring-border shadow-sm bg-surface-2">
           <img
             src={logoUrl}
             alt="ARIS Guard"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover rounded-full"
             onError={(e) => {
               e.currentTarget.src = "/logo.png";
             }}
