@@ -1,0 +1,82 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "protection": "Protection",
+    "optimizer": "Optimizer",
+    "quarantine": "Quarantine",
+    "history": "History",
+    "settings": "Settings",
+    "version": "v0.1.0",
+    "openSource": "Free & Open Source"
+  },
+  "dashboard": {
+    "title": "System Overview",
+    "healthTitle": "PC Health Score",
+    "goodShape": "Your PC is protected and running smoothly.",
+    "smartFix": "Smart Fix",
+    "smartFixDesc": "Clean temp junk, tune background apps",
+    "protectionStatus": "Real-Time Protection",
+    "active": "Active",
+    "paused": "Paused",
+    "lastScan": "Last check: 2 mins ago",
+    "junkFound": "Recoverable Space",
+    "startupApps": "Startup Items",
+    "startupCount": "4 apps enabled",
+    "memoryUsage": "Memory Working Set",
+    "memoryUsed": "24.6 MB agent idle",
+    "recentActivity": "Recent Activity",
+    "noRecentActivity": "No recent events logged yet."
+  },
+  "protection": {
+    "title": "Download Sentinel",
+    "subtitle": "Continuous inspection of downloaded files and executables",
+    "watching": "Watching Downloads & Desktop",
+    "engine": "Primary engine: Windows Defender",
+    "dropTitle": "Drag & drop file to scan",
+    "dropSubtitle": "Executables, archives, and scripts are triaged instantly",
+    "recentScans": "Recent Scan Results",
+    "fileName": "File",
+    "verdict": "Verdict",
+    "time": "Scanned At",
+    "actions": "Action"
+  },
+  "optimizer": {
+    "title": "System Optimizer",
+    "subtitle": "Safe, age-restricted temporary file and background management",
+    "cleanerTab": "Junk Cleaner",
+    "startupTab": "Startup Manager",
+    "memoryTab": "Processes",
+    "previewBtn": "Preview Space",
+    "cleanBtn": "Clean Now",
+    "userTemp": "User Temp Files (%TEMP%)",
+    "thumbnails": "Explorer Thumbnail Cache",
+    "crashDumps": "System Crash Reports",
+    "werReports": "Windows Error Reporting"
+  },
+  "quarantine": {
+    "title": "Threat Quarantine",
+    "subtitle": "Isolated, encrypted storage for blocked downloads",
+    "empty": "Quarantine Vault is Empty",
+    "emptySubtitle": "No suspicious or malicious files have been detained."
+  },
+  "history": {
+    "title": "Activity History",
+    "subtitle": "Transparent audit trail of scans, cleanups, and actions",
+    "all": "All",
+    "scans": "Scans",
+    "cleans": "Cleanups",
+    "startup": "Startup Changes"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "startWithWindows": "Start with Windows (System Tray)",
+    "language": "Language / ভাষা",
+    "theme": "Theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "themeSystem": "System",
+    "save": "Save Changes",
+    "saved": "Settings saved successfully"
+  }
+}

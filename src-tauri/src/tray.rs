@@ -74,11 +74,8 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
-    if let Some(default_icon) = app.default_window_icon() {
-        tray_builder.icon(default_icon.clone()).build(app)?;
-    } else {
-        tray_builder.build(app)?;
-    }
+    let icon = tauri::include_image!("icons/32x32.png");
+    tray_builder.icon(icon).build(app)?;
 
     Ok(())
 }

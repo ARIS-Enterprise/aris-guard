@@ -2,6 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, WindowEvent};
+use tauri_plugin_autostart::ManagerExt;
 
 mod agent;
 mod cleaner;
@@ -68,6 +69,7 @@ fn main() {
     };
 
     let agent_state = AgentState::new();
+    let start_with_windows = settings.start_with_windows;
     let config_state = AppConfigState {
         settings: Arc::new(Mutex::new(settings)),
         config_path,
@@ -94,9 +96,28 @@ fn main() {
         .manage(agent_state)
         .manage(database)
         .manage(config_state)
-        .setup(|app| {
+        .setup(move |app| {
             tracing::info!("Initializing ARIS Guard tray and runtime");
             tray::create_tray(app.handle())?;
+
+            if start_with_windows {
+                let autostart = app.autolaunch();
+                match autostart.is_enabled() {
+                    Ok(false) => {
+                        if let Err(e) = autostart.enable() {
+                            tracing::warn!("Failed to enable Windows startup: {e}");
+                        } else {
+                            tracing::info!("Successfully registered ARIS Guard in Windows startup");
+                        }
+                    }
+                    Ok(true) => {
+                        tracing::debug!("Windows startup is already active");
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to query autostart status: {e}");
+                    }
+                }
+            }
 
             let args: Vec<String> = std::env::args().collect();
             if args.iter().any(|arg| arg == "--minimized") {
