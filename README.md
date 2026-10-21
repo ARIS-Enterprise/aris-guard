@@ -1,164 +1,176 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/arisai.png">
-    <img src="assets/arisai.png" alt="ARIS Guard Logo" width="110" style="border-radius: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.25);" />
-  </picture>
+  <img src="assets/arisai.png" alt="ARIS Guard Logo" width="100" style="border-radius: 18px;" />
 </p>
 
 <h1 align="center">ARIS Guard</h1>
 
 <p align="center">
-  <strong>A lightweight, private, and honest Windows PC protector and system optimizer.</strong><br>
-  Runs quietly in the background · under 30 MB of RAM idle · Zero telemetry · 100% Free & Open Source
+  <strong>High-performance, private, and lightweight Windows PC protection and system optimization.</strong><br>
+  Open source under the MIT License. Free of advertisements, third-party trackers, and telemetry.
 </p>
 
 <p align="center">
-  <a href="https://github.com/ARIS-Enterprise/aris-guard/releases"><img src="https://img.shields.io/github/v/release/ARIS-Enterprise/aris-guard?style=flat-square&color=2F6FED&label=Release" alt="Latest Release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-success.svg?style=flat-square" alt="License: MIT" /></a>
-  <img src="https://img.shields.io/badge/Platform-Windows%2010%20(21H2%2B)%20%7C%2011-0078D6.svg?style=flat-square&logo=windows" alt="Platform: Windows" />
-  <img src="https://img.shields.io/badge/Backend-Rust%20%7C%20Tauri%20v2-DEA584.svg?style=flat-square&logo=rust" alt="Rust Tauri" />
-  <img src="https://img.shields.io/badge/Frontend-React%2018%20%7C%20TS%20%7C%20Tailwind-38BDF8.svg?style=flat-square&logo=react" alt="React TS" />
-  <img src="https://img.shields.io/badge/Idle%20Memory-%E2%89%A4%2030%20MB-10B981.svg?style=flat-square" alt="Idle RAM Budget" />
-  <img src="https://img.shields.io/badge/Telemetry-None%20(100%25%20Local)-blueviolet.svg?style=flat-square" alt="Zero Telemetry" />
+  <a href="https://github.com/ARIS-Enterprise/aris-guard/releases"><img src="https://img.shields.io/github/v/release/ARIS-Enterprise/aris-guard?style=flat-square&color=2563EB&label=Release" alt="Release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-gray?style=flat-square" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?style=flat-square" alt="Platform: Windows" />
+  <img src="https://img.shields.io/badge/Architecture-Rust%20%7C%20Tauri%20v2-B7410E?style=flat-square" alt="Backend" />
+  <img src="https://img.shields.io/badge/Frontend-React%20%7C%20TypeScript-3178C6?style=flat-square" alt="Frontend" />
+  <img src="https://img.shields.io/badge/Memory-under%2030%20MB%20idle-059669?style=flat-square" alt="Idle Memory" />
+  <img src="https://img.shields.io/badge/Telemetry-None%20(Local--First)-6D28D9?style=flat-square" alt="Zero Telemetry" />
 </p>
 
 ---
 
-## 💡 Why ARIS Guard?
+## Overview
 
-Most PC cleaners and security tools have become the very thing they promised to fix: bloated, full of intrusive popups, heavy background processes eating battery and RAM, and aggressive upsells.
+Modern endpoint utilities often become resource-intensive background burdens, consuming excessive memory and introducing intrusive alerts or data collection.
 
-**ARIS Guard** takes the opposite approach. Built from scratch with **Rust** and **Tauri v2**, it is designed to be an invisible, trustworthy utility that stays out of your way and respects your system resources.
+ARIS Guard provides an efficient, honest alternative. Engineered with Rust and Tauri v2, it operates as a silent system tray utility designed to maintain system cleanliness and inspect incoming downloaded files while adhering to strict resource constraints.
 
-| Feature | Typical Antivirus | Commercial "PC Cleaners" | ARIS Guard |
-| :--- | :---: | :---: | :---: |
-| **Idle Memory Consumption** | 250 MB – 800 MB+ | 120 MB – 300 MB | **≤ 30 MB** |
-| **Idle CPU Usage** | Periodic spikes & scanning | Constant background activity | **~0% (event-driven)** |
-| **Telemetry & Data Collection** | Heavy device analytics | User tracking & ads | **Zero (100% local-first)** |
-| **Safety Standard** | Aggressive silent quarantine | Destructive registry wipes | **Safe, non-destructive, reversible** |
-| **UI Lifecycle** | Constant background renderer | Persistent Electron/Webview | **Destroyed on close (0 MB overhead)** |
-| **License** | Paid / Annual Subscription | Freemium nagware | **Free Forever (MIT)** |
+### Comparison Matrix
 
----
-
-## ⚡ Core Capabilities
-
-### 🛡️ 1. Real-Time Download Sentinel
-Watches your download directories (`Downloads`, browser staging paths) and automatically triages every incoming executable, installer, script, and archive before you execute it.
-- **Authenticode Verification:** Evaluates digital signatures and publisher certificates via native Win32 APIs (`WinVerifyTrust`).
-- **Mark-of-the-Web (MOTW) Analysis:** Detects Internet Zone provenance (`Zone.Identifier` ADS) and deceptive double extensions (`.pdf.exe`).
-- **Windows Defender Integration:** Leverages the native Windows Defender engine via on-demand scan IPC without installing redundant background drivers.
-- **Isolated Quarantine:** Safely moves suspicious payloads into an encrypted, non-executable quarantine vault with one-click restore capabilities.
-
-### 🧹 2. Safe & Reversible System Optimizer
-Removes accumulated system junk and browser temporary files without breaking installed applications.
-- **Junction & Symlink Aware:** Proactively guards against symlink recursion and junction traversal attacks.
-- **Age-Gated Cleaning:** Only touches files older than 24 hours to prevent clashing with active application installers.
-- **Dry-Run Previews:** Shows exactly what will be removed and how much disk space will be reclaimed before touching a single byte.
-- **No Dangerous Registry "Cleaning":** Avoids blind registry alterations that destabilize Windows.
-
-### 🚀 3. Startup & Process Management
-Gives you control over what software runs on your computer.
-- **Raw Startup Fidelity:** Reads both registry autorun keys (`HKCU`/`HKLM`) and Startup folders directly without third-party abstraction layers.
-- **Reversible Disabling:** Uses native Windows `StartupApproved` keys so startup items can be toggled on/off without deleting their configuration.
-- **Memory Footprint Inspector:** Identifies background processes holding excessive private working set memory.
+| Property | Standard Antivirus Suites | Commercial PC Utilities | ARIS Guard |
+| :--- | :--- | :--- | :--- |
+| **Idle Memory** | 250 MB – 800 MB+ | 120 MB – 300 MB | **under 30 MB** |
+| **Idle CPU Activity** | Periodic intensive scans | Continuous background polling | **Near 0% (event-driven)** |
+| **Data Collection** | Extensive device telemetry | User tracking and analytics | **Zero (strictly local)** |
+| **Remediation Model** | Silent or destructive removal | Destructive registry alterations | **Non-destructive and reversible** |
+| **UI Process Lifecycle**| Always-active renderer | Resident Electron/Webview | **Terminated on window close** |
+| **License** | Paid subscription | Freemium | **MIT (Open Source)** |
 
 ---
 
-## 🏗️ Architecture: The Two-Process Model
+## Core Capabilities
 
-To keep system overhead minimal, ARIS Guard is strictly split into two operational layers:
+### 1. Real-Time Download Sentinel
+Continuously monitors designated download directories and incoming files across web browsers and staging paths.
+- **Authenticode Verification:** Evaluates publisher certificates and digital signatures utilizing Win32 APIs (`WinVerifyTrust`).
+- **Mark-of-the-Web (MOTW) Inspection:** Detects external zone provenance (`Zone.Identifier` Alternate Data Streams) and double-extension obfuscation patterns.
+- **Windows Defender Integration:** Coordinates on-demand file analysis via the native Windows Defender engine (`MpCmdRun`) without redundant driver overhead.
+- **Isolated Quarantine:** Relocates high-risk artifacts to an encrypted, unexecutable vault with complete restoration capability.
 
+### 2. System and Cache Cleanup
+Eliminates obsolete temporary files and browser cache accumulations without compromising application integrity.
+- **Reparse Point Defense:** Verifies paths against junction traversal and symbolic link redirects.
+- **Age-Restricted Deletion:** Enforces a 24-hour modification threshold to protect active installers.
+- **Non-Destructive Operations:** Excludes Windows registry tampering, driver removals, and system critical directories.
+- **Dry-Run Analysis:** Provides preview metrics of recoverable disk space prior to execution.
+
+### 3. Startup and Process Management
+Presents visibility into configured boot items and resident system processes.
+- **Direct Registry Enumeration:** Inspects `Run` paths directly across `HKCU` and `HKLM`.
+- **Reversible Disabling:** Interfaces with the Windows `StartupApproved` architecture to toggle services without deletion.
+- **Memory Footprint Reporting:** Identifies background processes consuming excessive private working set memory.
+
+---
+
+## Process Model and Architecture
+
+ARIS Guard separates persistent operational tasks from the user interface:
+
+```text
++-------------------------------------------------------------------+
+|                     ARIS Guard Architecture                       |
++---------------------------------+---------------------------------+
+| Persistent Background Agent     | On-Demand User Interface        |
+| (Rust Core)                     | (Tauri v2 + React)              |
++---------------------------------+---------------------------------+
+| - System Tray & Notifications   | - System Status & Metrics       |
+| - Directory Watcher (notify)    | - Quarantine Inspection         |
+| - Embedded SQLite (rusqlite)    | - Settings Management           |
+| - Task Execution & Scheduler    | - Audit History Log             |
+|                                 |                                 |
+| Memory: under 30 MB (idle)      | Memory: Active only when open   |
+| CPU: Near 0% average            | Lifetime: Destroyed on close    |
++---------------------------------+---------------------------------+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     ARIS Guard Architecture                     │
-├────────────────────────────────┬────────────────────────────────┤
-│    Persistent Background Agent │       On-Demand Desktop UI     │
-│             (Rust Core)        │         (Tauri + React)        │
-├────────────────────────────────┼────────────────────────────────┤
-│ • System Tray & Native Toast   │ • Dashboard & Visual Metrics   │
-│ • Directory Watcher (notify)   │ • Threat Quarantine Manager    │
-│ • SQLite Database (rusqlite)   │ • Interactive Settings         │
-│ • Low-priority scan threadpool │ • History & Audit Trail        │
-│                                │                                │
-│ Budget: ≤ 30 MB RAM | ~0% CPU  │ Budget: ≤ 150 MB (WHEN OPEN)   │
-│ Lifetime: System boot to exit  │ Lifetime: Destroyed when closed│
-└────────────────────────────────┴────────────────────────────────┘
-```
 
-> **Memory Rule:** When you close the ARIS Guard window, the entire WebView2 rendering instance is **terminated from memory**, leaving only the lean Rust agent (≤ 30 MB) running in the tray.
+When the desktop window is closed, the WebView2 renderer process is completely terminated from memory. The background agent remains resident in the system tray, consuming minimal resources.
 
 ---
 
-## ⚖️ Honest Boundaries (What ARIS Guard is NOT)
+## Boundaries and Non-Goals
 
-We believe in complete technical honesty:
-- **Not a replacement for Windows Defender:** ARIS Guard collaborates with Windows Defender; it does not replace kernel-level endpoint threat detection.
-- **No kernel-mode drivers:** ARIS Guard runs entirely in user-space using standard Windows security APIs. It will never install kernel drivers that could cause system instability or Blue Screens (BSOD).
-- **No miraculous "PC Boost":** We do not manipulate system clocks, disable essential OS services, or run unsafe registry cleaners.
+- **Not a replacement for Windows Defender:** ARIS Guard interfaces with Defender; it does not implement custom kernel-level antivirus drivers.
+- **No kernel-mode drivers:** Executes strictly within user mode permissions.
+- **No unsafe registry optimization:** Avoids arbitrary registry key pruning that can introduce OS instability.
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```text
 aris-guard/
-├── assets/                       # Branding, icons, and visual assets
-├── docs/                         # Technical specs & engineering blueprints
-│   ├── 00_README_FOR_ANTIGRAVITY.md
-│   ├── 01_PRODUCT_AND_ARCHITECTURE.md
-│   ├── 02_SECURITY_SCANNER_SPEC.md
-│   ├── 03_OPTIMIZER_SPEC.md
-│   ├── 04_UI_UX_DESIGN_SYSTEM.md
-│   ├── 05_DISTRIBUTION_OPEN_SOURCE.md
-│   ├── 06_ROADMAP_AND_TESTING.md
-│   └── README.md
-├── src/                          # Frontend UI (React, Vite, TypeScript, Tailwind)
-├── src-tauri/                    # Core Engine (Rust, Tauri v2, SQLite, Win32)
-├── CONTRIBUTING.md               # Developer setup & guidelines
-├── LICENSE                       # MIT License
-├── PRIVACY.md                    # Zero-telemetry policy
-├── README.md                     # Project landing documentation
-└── SECURITY.md                   # Security vulnerability reporting
+|-- .github/                      # Workflows, contribution, and security policies
+|   |-- workflows/ci.yml
+|   |-- CONTRIBUTING.md
+|   `-- SECURITY.md
+|-- assets/                       # Branding and media assets
+|   `-- arisai.png
+|-- docs/                         # Technical specifications and design documents
+|   |-- 00_README_FOR_ANTIGRAVITY.md
+|   |-- 01_PRODUCT_AND_ARCHITECTURE.md
+|   |-- 02_SECURITY_SCANNER_SPEC.md
+|   |-- 03_OPTIMIZER_SPEC.md
+|   |-- 04_UI_UX_DESIGN_SYSTEM.md
+|   |-- 05_DISTRIBUTION_OPEN_SOURCE.md
+|   |-- 06_ROADMAP_AND_TESTING.md
+|   |-- PRIVACY.md
+|   `-- README.md
+|-- src/                          # React + TypeScript frontend
+|-- src-tauri/                    # Rust core agent and Tauri configuration
+|-- .gitignore                    # Artifact exclusions
+|-- LICENSE                       # MIT License
+`-- README.md                     # Project landing documentation
 ```
 
 ---
 
-## 🛠️ Building from Source
+## Technical Specifications
+
+The engineering blueprints are documented within [`docs/`](docs/):
+
+| Document | Area | Scope |
+| :--- | :--- | :--- |
+| [00 - Master Handoff](docs/00_README_FOR_ANTIGRAVITY.md) | Guidelines | Architecture rules, locked stack, and acceptance standards |
+| [01 - Architecture](docs/01_PRODUCT_AND_ARCHITECTURE.md) | Core Design | Process model, flat module layout, and memory budgets |
+| [02 - Security Scanner](docs/02_SECURITY_SCANNER_SPEC.md) | File Inspection | Download watcher, analysis stages, and quarantine format |
+| [03 - Optimizer](docs/03_OPTIMIZER_SPEC.md) | Maintenance | Temp file cleanup, startup management, and health scoring |
+| [04 - UI/UX Design](docs/04_UI_UX_DESIGN_SYSTEM.md) | Interface | Visual tokens, dark/light themes, and bilingual support |
+| [05 - Distribution](docs/05_DISTRIBUTION_OPEN_SOURCE.md) | Deployment | NSIS packaging, CI/CD pipelines, and signing strategy |
+| [06 - Roadmap & QA](docs/06_ROADMAP_AND_TESTING.md) | Verification | Phased implementation criteria and testing matrix |
+
+---
+
+## Building from Source
 
 ### Prerequisites
-- **OS:** Windows 10 (21H2 or newer) / Windows 11 (x64)
-- **Rust:** Stable toolchain (`rustup default stable-x86_64-pc-windows-msvc`)
-- **Node.js:** Node 20 LTS or later with `npm`
-- **C++ Build Tools:** Visual Studio Build Tools with Desktop C++ workload
-- **WebView2 Runtime:** Included by default in Windows 10/11
+- Windows 10 (version 21H2 or later) or Windows 11 (x64)
+- Rust stable toolchain (`x86_64-pc-windows-msvc`)
+- Node.js (version 20 LTS or newer)
+- Visual Studio Build Tools (C++ workload)
 
-### Quick Build
+### Compilation
 ```powershell
-# 1. Clone the repository
+# Clone repository
 git clone https://github.com/ARIS-Enterprise/aris-guard.git
 cd aris-guard
 
-# 2. Install dependencies
+# Install dependencies
 npm install
 
-# 3. Launch in development mode (with Hot Module Replacement)
+# Run in development mode
 npm run tauri dev
 
-# 4. Compile optimized production release (NSIS installer + portable binary)
+# Compile production release binary and installer
 npm run tauri build
 ```
 
 ---
 
-## 🔒 Privacy & Security
+## Policy and Governance
 
-- **Privacy Policy:** ARIS Guard does not transmit any files, hardware telemetry, or analytics. Read [`PRIVACY.md`](PRIVACY.md).
-- **Vulnerability Disclosure:** If you identify a security issue, please review [`SECURITY.md`](SECURITY.md) for responsible disclosure procedures.
-
----
-
-## 📄 License
-
-ARIS Guard is open-source software licensed under the **[MIT License](LICENSE)**.
-Free for personal and commercial use.
+- **License:** Licensed under the [MIT License](LICENSE).
+- **Privacy:** Review our complete zero-telemetry policy in [docs/PRIVACY.md](docs/PRIVACY.md).
+- **Security:** Security disclosures and vulnerability reporting procedures are located in [.github/SECURITY.md](.github/SECURITY.md).
+- **Contributions:** Review developer standards and requirements in [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
