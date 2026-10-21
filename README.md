@@ -9,7 +9,7 @@
 
 <p align="center">
   <strong>A lightweight, private, and honest Windows PC protector and system optimizer.</strong><br>
-  Runs quietly in the background · ≤ 30 MB idle RAM · Zero telemetry · 100% Free & Open Source
+  Runs quietly in the background · under 30 MB of RAM idle · Zero telemetry · 100% Free & Open Source
 </p>
 
 <p align="center">

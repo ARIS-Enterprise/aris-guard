@@ -22,5 +22,5 @@ All specifications follow a strict implementation roadmap and design principles 
 ## 🛡️ Core Architectural Principles
 
 1. **Safety over aggressiveness:** Disable rather than delete; quarantine rather than destroy. Every destructive action is reversible.
-2. **True Low Footprint:** Agent runs quietly in the tray using $\le 30\text{ MB}$ RAM and $\approx 0\%$ CPU at idle. The heavy WebView2 UI is destroyed when closed.
+2. **True Low Footprint:** Agent runs quietly in the tray using under 30 MB of RAM and ~0% CPU at idle. The heavy WebView2 UI is destroyed when closed.
 3. **Local-First & Private:** No telemetry, no background analytics, no cloud sync, and no user accounts.
