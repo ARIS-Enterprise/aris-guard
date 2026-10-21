@@ -5,7 +5,6 @@ import {
   Lock,
   History,
   Settings,
-  Shield,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -34,9 +33,11 @@ export default function Sidebar() {
     >
       {/* Brand Header */}
       <div className="flex h-16 items-center gap-3 px-5 border-b border-border">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Shield className="h-6 w-6" />
-        </div>
+        <img
+          src="/assets/arisai.png"
+          alt="ARIS Guard"
+          className="h-9 w-9 rounded-full object-cover shrink-0"
+        />
         {!collapsed && (
           <div className="flex flex-col overflow-hidden">
             <span className="font-semibold tracking-tight text-text truncate">
