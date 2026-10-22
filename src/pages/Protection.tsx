@@ -12,6 +12,15 @@ import {
   Check,
   Plus,
   Trash2,
+  Binary,
+  Archive,
+  FileCode,
+  ShieldCheck,
+  Cpu,
+  Layers,
+  Sparkles,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import Pill, { Verdict } from "../components/Pill";
 import { useAppStore } from "../lib/store";
@@ -90,7 +99,6 @@ export default function Protection() {
       setScanningFileName(file.name);
       setIsScanning(true);
 
-      // Check if native path is accessible on the File object (Tauri webview)
       const nativePath = (file as unknown as { path?: string }).path;
       if (nativePath) {
         const result = await scanFilePath(nativePath);
@@ -108,7 +116,6 @@ export default function Protection() {
     }
   };
 
-  // HTML5 Drag and drop handlers
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -151,6 +158,20 @@ export default function Protection() {
     await updateSettings({ ...settings, watch_folders: updated });
   };
 
+  const getFileIcon = (fileName: string) => {
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith(".zip") || lower.endsWith(".rar") || lower.endsWith(".7z")) {
+      return <Archive className="h-4 w-4 text-amber-400 shrink-0" />;
+    }
+    if (lower.endsWith(".exe") || lower.endsWith(".msi") || lower.endsWith(".dll")) {
+      return <Binary className="h-4 w-4 text-primary shrink-0" />;
+    }
+    if (lower.endsWith(".bat") || lower.endsWith(".ps1") || lower.endsWith(".vbs")) {
+      return <FileCode className="h-4 w-4 text-cyan-400 shrink-0" />;
+    }
+    return <FileCheck className="h-4 w-4 text-text-muted shrink-0" />;
+  };
+
   const watchFolders = settings?.watch_folders ?? ["Downloads", "Desktop"];
 
   return (
@@ -175,6 +196,37 @@ export default function Protection() {
         <p className="text-sm text-text-muted mt-1">
           {translate("protection.subtitle", language)}
         </p>
+      </div>
+
+      {/* Pre-Execution Sentinel Feature Card */}
+      <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-surface to-surface p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary border border-primary/30 shadow-inner">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-text">
+                  {translate("protection.preExecBannerTitle", language)}
+                </span>
+                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary uppercase tracking-wider">
+                  Advanced
+                </span>
+              </div>
+              <p className="text-xs text-text-muted mt-1 max-w-xl">
+                {translate("protection.preExecBannerDesc", language)}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 active:scale-95 transition-all shrink-0"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            <span>{translate("protection.browseDeepScan", language)}</span>
+          </button>
+        </div>
       </div>
 
       {/* Sentinel Status Banner */}
@@ -206,48 +258,64 @@ export default function Protection() {
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-10 text-center cursor-pointer transition-all ${
+        className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center cursor-pointer transition-all ${
           isDragging
-            ? "border-primary bg-primary/10 scale-[1.01]"
-            : "border-border bg-surface/50 hover:border-primary/50 hover:bg-surface/80"
+            ? "border-primary bg-primary/10 scale-[1.01] shadow-lg shadow-primary/10"
+            : "border-border/80 bg-surface/60 hover:border-primary/50 hover:bg-surface/90"
         }`}
       >
         {isScanning ? (
-          <div className="flex flex-col items-center space-y-3">
+          <div className="flex flex-col items-center space-y-3 py-4">
             <Loader2 className="h-10 w-10 text-primary animate-spin" />
             <div>
               <span className="text-sm font-semibold text-text">
-                Scanning {scanningFileName}...
+                Inspecting {scanningFileName}...
               </span>
-              <p className="text-xs text-text-muted mt-0.5">
-                Verifying Authenticode signature and payload heuristics
+              <p className="text-xs text-text-muted mt-1">
+                Decompressing archive, verifying Authenticode signatures, and checking PE entropy
               </p>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-2 border border-border text-primary mb-3 shadow-inner">
               <UploadCloud className="h-6 w-6" />
             </div>
             <span className="text-sm font-semibold text-text">
               {isDragging
-                ? "Drop file to inspect now"
+                ? "Drop payload here for deep analysis"
                 : translate("protection.dropTitle", language)}
             </span>
-            <p className="text-xs text-text-muted mt-1">
-              Click to browse or drop executables, scripts, archives (.exe,
-              .msi, .zip, .bat)
+            <p className="text-xs text-text-muted mt-1 max-w-md">
+              {translate("protection.dropSubtitle", language)}
             </p>
+
+            {/* Supported Format Pills */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 mt-4">
+              {[".EXE", ".ZIP", ".MSI", ".BAT", ".SCR", ".PS1", ".RAR", ".7Z"].map((fmt) => (
+                <span
+                  key={fmt}
+                  className="rounded-md bg-surface-2/80 px-2 py-0.5 text-[10px] font-mono font-medium text-text-muted border border-border/50"
+                >
+                  {fmt}
+                </span>
+              ))}
+            </div>
           </>
         )}
       </div>
 
       {/* Recent Scans Table */}
       <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="text-sm font-semibold text-text">
-            {translate("protection.recentScans", language)}
-          </h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface-2/20">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-text">
+              {translate("protection.recentScans", language)}
+            </h2>
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-text-muted">
+              {recentScans.length}
+            </span>
+          </div>
           <span className="text-xs text-text-muted flex items-center gap-1.5">
             <FolderCheck className="h-3.5 w-3.5 text-primary" />
             Active Monitor
@@ -281,13 +349,16 @@ export default function Protection() {
                   key={scan.id}
                   className="hover:bg-surface-2/40 transition-colors"
                 >
-                  <td className="px-5 py-3.5 font-medium text-text max-w-xs truncate">
-                    {scan.file_name}
+                  <td className="px-5 py-3.5 font-medium text-text max-w-xs">
+                    <div className="flex items-center gap-2.5 truncate">
+                      {getFileIcon(scan.file_name)}
+                      <span className="truncate">{scan.file_name}</span>
+                    </div>
                   </td>
                   <td className="px-5 py-3.5">
                     <Pill verdict={scan.verdict as Verdict} />
                   </td>
-                  <td className="px-5 py-3.5 text-text-muted">
+                  <td className="px-5 py-3.5 text-text-muted font-mono text-[11px]">
                     {scan.size_formatted}
                   </td>
                   <td className="px-5 py-3.5 text-text-muted">
@@ -298,9 +369,9 @@ export default function Protection() {
                   <td className="px-5 py-3.5 text-right">
                     <button
                       onClick={() => setSelectedScan(scan)}
-                      className="text-primary hover:underline font-semibold"
+                      className="rounded-lg border border-border bg-surface-2 px-3 py-1 text-xs font-semibold text-primary hover:bg-border active:scale-95 transition-all"
                     >
-                      Details
+                      Deep Report
                     </button>
                   </td>
                 </tr>
@@ -310,97 +381,252 @@ export default function Protection() {
         </div>
       </div>
 
-      {/* Details Inspection Modal */}
+      {/* Advanced Deep Malware & Pre-Execution Safety Inspection Modal */}
       {selectedScan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-border bg-surface p-6 shadow-xl space-y-5 animate-in zoom-in-95">
-            <div className="flex items-start justify-between border-b border-border pb-4">
-              <div className="flex items-center gap-3">
-                {selectedScan.verdict === "clean" ? (
-                  <FileCheck className="h-6 w-6 text-success" />
-                ) : selectedScan.verdict === "suspicious" ? (
-                  <AlertTriangle className="h-6 w-6 text-warning" />
-                ) : (
-                  <ShieldAlert className="h-6 w-6 text-danger" />
-                )}
-                <div>
-                  <h3 className="text-base font-semibold text-text truncate max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-border bg-surface shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-border px-6 py-4 bg-surface-2/40">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                    selectedScan.verdict === "clean"
+                      ? "bg-success/10 text-success border-success/30"
+                      : selectedScan.verdict === "suspicious"
+                        ? "bg-warning/10 text-warning border-warning/30"
+                        : "bg-danger/10 text-danger border-danger/30"
+                  }`}
+                >
+                  {selectedScan.verdict === "clean" ? (
+                    <FileCheck className="h-6 w-6" />
+                  ) : selectedScan.verdict === "suspicious" ? (
+                    <AlertTriangle className="h-6 w-6" />
+                  ) : (
+                    <ShieldAlert className="h-6 w-6" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-text truncate">
                     {selectedScan.file_name}
                   </h3>
-                  <span className="text-xs text-text-muted">
-                    Inspected by ARIS Sentinel Engine
-                  </span>
+                  <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5">
+                    <span>{selectedScan.size_formatted}</span>
+                    <span>•</span>
+                    <span className="font-mono truncate max-w-xs">{selectedScan.path}</span>
+                  </div>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedScan(null)}
-                className="rounded-lg p-1.5 text-text-muted hover:bg-surface-2 hover:text-text"
+                className="rounded-lg p-1.5 text-text-muted hover:bg-surface-2 hover:text-text transition-colors"
+                title="Close"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between py-1 border-b border-border/50">
-                <span className="text-text-muted">Verdict:</span>
-                <Pill verdict={selectedScan.verdict as Verdict} />
-              </div>
-
-              <div className="flex justify-between py-1 border-b border-border/50">
-                <span className="text-text-muted">Threat Score:</span>
-                <span className="font-semibold text-text">
-                  {selectedScan.score} / 100
-                </span>
-              </div>
-
-              <div className="flex justify-between py-1 border-b border-border/50">
-                <span className="text-text-muted">File Size:</span>
-                <span className="text-text">{selectedScan.size_formatted}</span>
-              </div>
-
-              <div className="py-1 border-b border-border/50 space-y-1">
-                <span className="text-text-muted">File Path:</span>
-                <div className="rounded bg-surface-2 p-2 font-mono text-[11px] text-text break-all">
-                  {selectedScan.path}
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Safety Verdict Status Banner */}
+              <div
+                className={`rounded-xl border p-4 ${
+                  selectedScan.verdict === "clean"
+                    ? "border-success/30 bg-success/10 text-success"
+                    : selectedScan.verdict === "suspicious"
+                      ? "border-warning/30 bg-warning/10 text-warning"
+                      : "border-danger/30 bg-danger/10 text-danger"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {selectedScan.verdict === "clean" ? (
+                      <ShieldCheck className="h-5 w-5" />
+                    ) : (
+                      <AlertTriangle className="h-5 w-5" />
+                    )}
+                    <span className="text-sm font-bold">
+                      {selectedScan.deep_analysis?.safety_verdict ||
+                        (selectedScan.verdict === "clean"
+                          ? "Safe to Run"
+                          : "High Risk Detected")}
+                    </span>
+                  </div>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface/50 border border-current">
+                    Threat Score: {selectedScan.score} / 100
+                  </span>
                 </div>
               </div>
 
-              <div className="py-1 border-b border-border/50 space-y-1">
+              {/* Technical Heuristics Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Authenticode Signature */}
+                <div className="rounded-xl border border-border bg-surface-2/30 p-3.5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-text">Authenticode Signature</span>
+                    {selectedScan.deep_analysis?.is_signed ? (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-success">
+                        <Lock className="h-3 w-3" /> Signed
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-warning">
+                        <Unlock className="h-3 w-3" /> Unsigned
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted leading-tight">
+                    {selectedScan.deep_analysis?.signature_details ||
+                      "Signature verification status"}
+                  </p>
+                </div>
+
+                {/* Shannon Entropy Analysis */}
+                <div className="rounded-xl border border-border bg-surface-2/30 p-3.5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-text">Shannon Binary Entropy</span>
+                    <span className="text-xs font-mono font-bold text-text">
+                      {selectedScan.deep_analysis?.entropy.toFixed(2) ?? "6.20"} / 8.0
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        (selectedScan.deep_analysis?.entropy ?? 6.2) > 7.15
+                          ? "bg-danger"
+                          : (selectedScan.deep_analysis?.entropy ?? 6.2) > 6.6
+                            ? "bg-warning"
+                            : "bg-success"
+                      }`}
+                      style={{
+                        width: `${Math.min(100, ((selectedScan.deep_analysis?.entropy ?? 6.2) / 8.0) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-text-muted block">
+                    {selectedScan.deep_analysis?.entropy_status || "Normal Binary Distribution"}
+                  </span>
+                </div>
+
+                {/* File Format & PE Subsystem */}
+                <div className="rounded-xl border border-border bg-surface-2/30 p-3.5 space-y-1">
+                  <span className="text-xs font-semibold text-text">Architecture & Format</span>
+                  <div className="flex items-center gap-2">
+                    <Cpu className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs text-text">
+                      {selectedScan.deep_analysis?.file_type || "Standard Binary"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Packer / Obfuscation status */}
+                <div className="rounded-xl border border-border bg-surface-2/30 p-3.5 space-y-1">
+                  <span className="text-xs font-semibold text-text">Obfuscation / Protector</span>
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-3.5 w-3.5 text-cyan-400" />
+                    <span className="text-xs text-text">
+                      {selectedScan.deep_analysis?.packer_name ||
+                        (selectedScan.deep_analysis?.is_packed
+                          ? "High-Entropy Packing"
+                          : "None (Clean Compilation)")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Archive Breakdown (if archive) */}
+              {selectedScan.deep_analysis?.is_archive && (
+                <div className="rounded-xl border border-border bg-surface-2/30 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Archive className="h-4 w-4 text-amber-400" />
+                      <span className="text-xs font-bold text-text">
+                        Archive Structural Inspection ({selectedScan.deep_analysis.archive_total_files} files)
+                      </span>
+                    </div>
+                    {selectedScan.deep_analysis.archive_is_encrypted && (
+                      <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
+                        Password Encrypted
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedScan.deep_analysis.archive_dangerous_entries.length > 0 ? (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[11px] font-semibold text-danger block">
+                        Flagged Hidden Payloads Inside Archive:
+                      </span>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {selectedScan.deep_analysis.archive_dangerous_entries.map((entry, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger"
+                          >
+                            <span className="font-mono text-[11px] truncate">{entry.path}</span>
+                            <span className="text-[10px] font-semibold uppercase shrink-0">
+                              {entry.risk_reason || "Executable"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-success flex items-center gap-1.5 pt-1">
+                      <Check className="h-3.5 w-3.5" />
+                      No disguised executables, zip bombs, or path traversal scripts found inside.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* SHA-256 Checksum Card */}
+              <div className="rounded-xl border border-border bg-surface-2/30 p-3.5 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-text-muted">SHA-256 Hash:</span>
+                  <span className="text-xs font-semibold text-text">Cryptographic SHA-256 Hash</span>
                   <button
                     onClick={() => handleCopyHash(selectedScan.sha256)}
-                    className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+                    className="flex items-center gap-1 text-[11px] text-primary hover:underline font-semibold"
                   >
                     {copiedHash ? (
-                      <Check className="h-3 w-3" />
+                      <Check className="h-3 w-3 text-success" />
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
-                    {copiedHash ? "Copied" : "Copy"}
+                    {copiedHash ? "Copied" : "Copy Hash"}
                   </button>
                 </div>
-                <div className="rounded bg-surface-2 p-2 font-mono text-[11px] text-text break-all">
+                <div className="rounded-lg bg-surface p-2 font-mono text-[11px] text-text break-all border border-border/50">
                   {selectedScan.sha256}
                 </div>
               </div>
 
-              <div className="py-1 space-y-1">
-                <span className="text-text-muted">Findings & Heuristics:</span>
-                <ul className="list-disc pl-4 space-y-0.5 text-text">
+              {/* Findings and Heuristic Reasons */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-text block">
+                  Detailed Findings & Heuristics ({selectedScan.reasons.length})
+                </span>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                   {selectedScan.reasons.map((r, i) => (
-                    <li key={i}>{r}</li>
+                    <div
+                      key={i}
+                      className="flex items-start gap-2 rounded-lg border border-border/60 bg-surface-2/30 p-2.5 text-xs text-text"
+                    >
+                      <span className="text-primary mt-0.5">•</span>
+                      <span>{r}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            {/* Modal Footer */}
+            <div className="border-t border-border px-6 py-4 bg-surface-2/40 flex items-center justify-between gap-3">
+              <span className="text-xs text-text-muted">
+                Engines: {selectedScan.engines.join(", ")}
+              </span>
               <button
                 onClick={() => setSelectedScan(null)}
-                className="rounded-xl bg-surface-2 px-4 py-2 text-xs font-semibold text-text hover:bg-border"
+                className="rounded-xl bg-primary px-5 py-2 text-xs font-semibold text-white hover:bg-primary/90 active:scale-95 transition-all shadow-sm"
               >
-                Close
+                Done
               </button>
             </div>
           </div>

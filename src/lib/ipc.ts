@@ -29,6 +29,36 @@ export interface SystemHealthMetrics {
   memory_budget_mb: number;
 }
 
+export interface ArchiveEntryItem {
+  path: string;
+  uncompressed_size: number;
+  is_executable: boolean;
+  is_script: boolean;
+  risk_level: "High" | "Medium" | "Low";
+  risk_reason?: string;
+}
+
+export interface DeepAnalysisInfo {
+  file_type: string;
+  entropy: number;
+  entropy_status: string;
+  is_signed: boolean;
+  signature_details: string;
+  suspicious_apis: string[];
+  pe_sections: string[];
+  is_packed: boolean;
+  packer_name?: string;
+  is_archive: boolean;
+  archive_format?: string;
+  archive_total_files: number;
+  archive_compression_ratio: number;
+  archive_is_encrypted: boolean;
+  archive_has_zip_bomb: boolean;
+  archive_has_zip_slip: boolean;
+  archive_dangerous_entries: ArchiveEntryItem[];
+  safety_verdict: string;
+}
+
 export interface ScanResultItem {
   id: string;
   path: string;
@@ -42,6 +72,7 @@ export interface ScanResultItem {
   engines: string[];
   scanned_at: string;
   action: string;
+  deep_analysis?: DeepAnalysisInfo;
 }
 
 export interface CleanupCategoryInfo {

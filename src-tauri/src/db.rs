@@ -121,6 +121,21 @@ impl Database {
             tracing::info!("Database migrated to schema version 1");
         }
 
+        if current < 2 {
+            let tx = conn.transaction()?;
+            let _ = tx.execute(
+                "ALTER TABLE scan_results ADD COLUMN deep_analysis_json TEXT;",
+                [],
+            );
+            let now = chrono::Utc::now().to_rfc3339();
+            tx.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
+                params![2, now],
+            )?;
+            tx.commit()?;
+            tracing::info!("Database migrated to schema version 2");
+        }
+
         Ok(())
     }
 }
@@ -134,7 +149,7 @@ mod tests {
         let db = Database::open_in_memory().expect("in-memory db open failed");
         let conn = db.conn.lock().unwrap();
         let version = Database::current_version(&conn).expect("fetch version failed");
-        assert_eq!(version, 1);
+        assert_eq!(version, 2);
 
         let mut stmt = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table'")
