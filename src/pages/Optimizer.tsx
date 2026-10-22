@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   HardDrive,
   Play,
@@ -16,6 +16,12 @@ import {
   ExternalLink,
   X,
   AlertTriangle,
+  Zap,
+  Cpu,
+  Radio,
+  FileSearch,
+  ShieldAlert,
+  Ghost,
 } from "lucide-react";
 import { useAppStore } from "../lib/store";
 import { translate } from "../lib/i18n";
@@ -30,6 +36,12 @@ import {
   deleteAppLeftovers,
   InstalledApp,
   AppLeftoverScanResult,
+  EradicationTarget,
+  EradicationAuditReport,
+  EradicationResult,
+  listEradicationCandidates,
+  auditEradicationTraces,
+  executeOblivionEradication,
 } from "../lib/ipc";
 
 function formatBytes(bytes: number): string {
@@ -45,7 +57,7 @@ function formatBytes(bytes: number): string {
 export default function Optimizer() {
   const { language, startupItems, refreshAllData } = useAppStore();
   const [activeTab, setActiveTab] = useState<
-    "cleaner" | "uninstaller" | "startup" | "memory"
+    "cleaner" | "uninstaller" | "eradicator" | "startup" | "memory"
   >("cleaner");
 
   // Cleaner state
@@ -82,6 +94,31 @@ export default function Optimizer() {
   const [deleteResultMsg, setDeleteResultMsg] = useState<string | null>(null);
   const [confirmDeletePrompt, setConfirmDeletePrompt] = useState(false);
 
+  // Ghost Eradicator state
+  const [eradicationCandidates, setEradicationCandidates] = useState<
+    EradicationTarget[]
+  >([]);
+  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
+  const [candidateFilter, setCandidateFilter] = useState<
+    "all" | "ram" | "network" | "installed"
+  >("all");
+  const [candidateSearch, setCandidateSearch] = useState("");
+  const [selectedTarget, setSelectedTarget] =
+    useState<EradicationTarget | null>(null);
+  const [auditReport, setAuditReport] = useState<EradicationAuditReport | null>(
+    null,
+  );
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [isEradicating, setIsEradicating] = useState(false);
+  const [eradicationResult, setEradicationResult] =
+    useState<EradicationResult | null>(null);
+  const [confirmOblivionPrompt, setConfirmOblivionPrompt] = useState(false);
+
+  const customFileInputRef = useRef<HTMLInputElement>(null);
+
   // Load preview categories on mount
   useEffect(() => {
     loadPreview();
@@ -93,6 +130,13 @@ export default function Optimizer() {
       loadInstalledApps();
     }
   }, [activeTab, installedApps.length]);
+
+  // Load eradication candidates when switching to eradicator tab
+  useEffect(() => {
+    if (activeTab === "eradicator" && eradicationCandidates.length === 0) {
+      loadEradicationCandidates();
+    }
+  }, [activeTab, eradicationCandidates.length]);
 
   const loadPreview = async () => {
     try {
@@ -121,6 +165,18 @@ export default function Optimizer() {
     } catch (err) {
       console.error("Failed to load installed apps:", err);
       setIsLoadingApps(false);
+    }
+  };
+
+  const loadEradicationCandidates = async () => {
+    try {
+      setIsLoadingCandidates(true);
+      const candidates = await listEradicationCandidates();
+      setEradicationCandidates(candidates);
+      setIsLoadingCandidates(false);
+    } catch (err) {
+      console.error("Failed loading eradication candidates:", err);
+      setIsLoadingCandidates(false);
     }
   };
 
@@ -168,7 +224,7 @@ export default function Optimizer() {
     }
   };
 
-  // Deep Clean actions
+  // Deep Clean actions (Uninstaller)
   const handleOpenDeepClean = async (app: InstalledApp) => {
     setSelectedAppForClean(app);
     setScanResult(null);
@@ -184,7 +240,6 @@ export default function Optimizer() {
         app.install_location,
       );
       setScanResult(res);
-      // Select all by default so user can eradicate with 1 click
       setSelectedLeftoverIds(new Set(res.leftovers.map((item) => item.id)));
       setIsScanningLeftovers(false);
     } catch (err) {
@@ -242,7 +297,6 @@ export default function Optimizer() {
       setIsDeletingLeftovers(false);
       setConfirmDeletePrompt(false);
 
-      // Refresh leftovers scan
       const updated = await scanAppLeftovers(
         selectedAppForClean.name,
         selectedAppForClean.publisher,
@@ -251,7 +305,6 @@ export default function Optimizer() {
       setScanResult(updated);
       setSelectedLeftoverIds(new Set(updated.leftovers.map((l) => l.id)));
 
-      // Reload installed apps and store
       await loadInstalledApps();
       await refreshAllData();
     } catch (err) {
@@ -260,7 +313,97 @@ export default function Optimizer() {
     }
   };
 
-  // Filter installed apps
+  // Ghost Eradicator actions
+  const handleStartEradication = async (target: EradicationTarget) => {
+    setSelectedTarget(target);
+    setAuditReport(null);
+    setEradicationResult(null);
+    setConfirmOblivionPrompt(false);
+    setIsAuditing(true);
+
+    try {
+      const report = await auditEradicationTraces(
+        target.name,
+        target.exe_name,
+        target.path,
+      );
+      setAuditReport(report);
+      setSelectedItemIds(new Set(report.items.map((i) => i.id)));
+      setIsAuditing(false);
+    } catch (err) {
+      console.error("Audit traces failed:", err);
+      setIsAuditing(false);
+    }
+  };
+
+  const handleCustomFileSelect = async (file: File) => {
+    const fileName = file.name;
+    const baseName = fileName.replace(/\.[^/.]+$/, "");
+    const target: EradicationTarget = {
+      id: "custom-" + Date.now(),
+      name: baseName,
+      exe_name: fileName,
+      path: (file as unknown as { path?: string }).path,
+      category: "Custom File",
+    };
+    await handleStartEradication(target);
+  };
+
+  const handleToggleEradicationItem = (id: string) => {
+    const next = new Set(selectedItemIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedItemIds(next);
+  };
+
+  const handleSelectAllEradicationItems = () => {
+    if (!auditReport) return;
+    if (selectedItemIds.size === auditReport.items.length) {
+      setSelectedItemIds(new Set());
+    } else {
+      setSelectedItemIds(new Set(auditReport.items.map((i) => i.id)));
+    }
+  };
+
+  const handleExecuteOblivion = async () => {
+    if (!selectedTarget || !auditReport) return;
+    try {
+      setIsEradicating(true);
+      const itemsToPurge = auditReport.items.map((i) => ({
+        ...i,
+        selected: selectedItemIds.has(i.id),
+      }));
+
+      const res = await executeOblivionEradication(
+        selectedTarget.name,
+        itemsToPurge,
+      );
+      setEradicationResult(res);
+      setIsEradicating(false);
+      setConfirmOblivionPrompt(false);
+
+      // Re-audit to verify zero traces remain
+      const reAudit = await auditEradicationTraces(
+        selectedTarget.name,
+        selectedTarget.exe_name,
+        selectedTarget.path,
+      );
+      setAuditReport(reAudit);
+      setSelectedItemIds(new Set(reAudit.items.map((i) => i.id)));
+
+      // Reload candidates
+      await loadEradicationCandidates();
+      await refreshAllData();
+    } catch (err) {
+      console.error("Oblivion eradication failed:", err);
+      setIsEradicating(false);
+    }
+  };
+
+  // Filter lists
   const filteredApps = installedApps.filter((app) => {
     const q = appSearchQuery.trim().toLowerCase();
     if (!q) return true;
@@ -271,13 +414,53 @@ export default function Optimizer() {
     );
   });
 
-  const selectedBytesTotal =
+  const filteredCandidates = eradicationCandidates.filter((cand) => {
+    if (candidateFilter === "ram" && cand.category !== "Running in RAM")
+      return false;
+    if (
+      candidateFilter === "network" &&
+      cand.category !== "Network & Data Usage"
+    )
+      return false;
+    if (
+      candidateFilter === "installed" &&
+      cand.category !== "Installed Software"
+    )
+      return false;
+
+    const q = candidateSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      cand.name.toLowerCase().includes(q) ||
+      cand.exe_name.toLowerCase().includes(q) ||
+      (cand.path && cand.path.toLowerCase().includes(q))
+    );
+  });
+
+  const selectedLeftoverBytes =
     scanResult?.leftovers
       .filter((l) => selectedLeftoverIds.has(l.id))
       .reduce((sum, l) => sum + l.size_bytes, 0) || 0;
 
+  const selectedAuditBytes =
+    auditReport?.items
+      .filter((i) => selectedItemIds.has(i.id))
+      .reduce((sum, i) => sum + i.size_bytes, 0) || 0;
+
   return (
     <div className="space-y-6">
+      {/* Hidden file input for custom file eradication */}
+      <input
+        type="file"
+        ref={customFileInputRef}
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleCustomFileSelect(e.target.files[0]);
+          }
+        }}
+      />
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-text">
           {translate("optimizer.title", language)}
@@ -288,12 +471,16 @@ export default function Optimizer() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border space-x-6 text-sm font-medium">
+      <div className="flex border-b border-border space-x-6 text-sm font-medium overflow-x-auto">
         {[
           { id: "cleaner", label: translate("optimizer.cleanerTab", language) },
           {
             id: "uninstaller",
             label: translate("optimizer.uninstallerTab", language),
+          },
+          {
+            id: "eradicator",
+            label: translate("optimizer.eradicatorTab", language),
           },
           { id: "startup", label: translate("optimizer.startupTab", language) },
           { id: "memory", label: translate("optimizer.memoryTab", language) },
@@ -301,7 +488,7 @@ export default function Optimizer() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`pb-3 border-b-2 transition-colors ${
+            className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? "border-primary text-primary font-semibold"
                 : "border-transparent text-text-muted hover:text-text"
@@ -409,7 +596,6 @@ export default function Optimizer() {
       {/* Deep Uninstaller Tab Content */}
       {activeTab === "uninstaller" && (
         <div className="space-y-4">
-          {/* Search and stats bar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
@@ -423,7 +609,8 @@ export default function Optimizer() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs text-text-muted px-2">
-                {filteredApps.length} {translate("optimizer.appsDetected", language)}
+                {filteredApps.length}{" "}
+                {translate("optimizer.appsDetected", language)}
               </span>
               <button
                 onClick={loadInstalledApps}
@@ -439,7 +626,6 @@ export default function Optimizer() {
             </div>
           </div>
 
-          {/* Installed Apps List */}
           <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
             {isLoadingApps ? (
               <div className="flex flex-col items-center justify-center p-12 text-center">
@@ -505,7 +691,177 @@ export default function Optimizer() {
                         title="Scan leftovers and completely remove application"
                       >
                         <Trash2 className="h-3.5 w-3.5 text-danger" />
-                        <span>{translate("optimizer.deepCleanBtn", language)}</span>
+                        <span>
+                          {translate("optimizer.deepCleanBtn", language)}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Ghost Eradicator Tab Content */}
+      {activeTab === "eradicator" && (
+        <div className="space-y-4">
+          {/* Feature Banner */}
+          <div className="relative overflow-hidden rounded-2xl border border-danger/30 bg-gradient-to-r from-danger/10 via-surface to-surface p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger/20 text-danger border border-danger/30 shadow-inner">
+                  <Ghost className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-text">
+                      Ghost Eradicator (Total Oblivion Purge)
+                    </span>
+                    <span className="rounded-full bg-danger/20 px-2 py-0.5 text-[10px] font-bold text-danger uppercase tracking-wider">
+                      Zero-Trace
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-muted mt-1 max-w-xl">
+                    {translate("optimizer.eradicatorSubtitle", language)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => customFileInputRef.current?.click()}
+                className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-text hover:bg-surface-2 active:scale-95 transition-all shrink-0"
+              >
+                <FileSearch className="h-4 w-4 text-primary" />
+                <span>{translate("optimizer.browseCustomFile", language)}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Chips and Search */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              {[
+                { id: "all", label: "All Targets" },
+                { id: "ram", label: "Running in RAM" },
+                { id: "network", label: "Network & Data Usage" },
+                { id: "installed", label: "Installed Software" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setCandidateFilter(f.id as typeof candidateFilter)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all shrink-0 ${
+                    candidateFilter === f.id
+                      ? "bg-primary text-white font-semibold shadow-sm"
+                      : "bg-surface border border-border text-text-muted hover:text-text hover:bg-surface-2"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted" />
+              <input
+                type="text"
+                placeholder={translate("optimizer.searchTargets", language)}
+                value={candidateSearch}
+                onChange={(e) => setCandidateSearch(e.target.value)}
+                className="w-full rounded-xl border border-border bg-surface pl-9 pr-3 py-1.5 text-xs text-text placeholder-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          {/* Candidates List */}
+          <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+            {isLoadingCandidates ? (
+              <div className="flex flex-col items-center justify-center p-12 text-center">
+                <Loader2 className="h-6 w-6 text-primary animate-spin mb-3" />
+                <span className="text-xs font-medium text-text">
+                  Auditing running processes, network firewall usage, and software...
+                </span>
+              </div>
+            ) : filteredCandidates.length === 0 ? (
+              <div className="p-8 text-center text-xs text-text-muted">
+                No matching target found. Pick any file manually using the button above.
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {filteredCandidates.map((cand) => (
+                  <div
+                    key={cand.id}
+                    className="flex items-center justify-between p-4 hover:bg-surface-2/40 transition-colors gap-4"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-sm font-bold ${
+                          cand.category === "Running in RAM"
+                            ? "bg-danger/10 text-danger border-danger/20"
+                            : cand.category === "Network & Data Usage"
+                              ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
+                              : "bg-surface-2 text-primary border-border"
+                        }`}
+                      >
+                        {cand.category === "Running in RAM" ? (
+                          <Cpu className="h-5 w-5" />
+                        ) : cand.category === "Network & Data Usage" ? (
+                          <Radio className="h-5 w-5" />
+                        ) : (
+                          <Ghost className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-text truncate">
+                            {cand.name}
+                          </span>
+                          <span className="text-[10px] rounded bg-surface-2 px-1.5 py-0.5 text-text-muted shrink-0 font-mono">
+                            {cand.exe_name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5 truncate">
+                          <span className="text-[11px] font-medium text-primary">
+                            {cand.category}
+                          </span>
+                          {cand.ram_usage_formatted && (
+                            <>
+                              <span>•</span>
+                              <span className="text-danger font-semibold">
+                                {cand.ram_usage_formatted} RAM
+                              </span>
+                            </>
+                          )}
+                          {cand.pid && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono text-[11px]">
+                                PID: {cand.pid}
+                              </span>
+                            </>
+                          )}
+                          {cand.path && (
+                            <>
+                              <span>•</span>
+                              <span className="truncate max-w-[220px] font-mono text-[11px]">
+                                {cand.path}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <button
+                        onClick={() => handleStartEradication(cand)}
+                        className="flex items-center gap-1.5 rounded-lg border border-danger/40 bg-danger/10 hover:bg-danger text-danger hover:text-white px-3.5 py-2 text-xs font-semibold active:scale-95 transition-all shadow-sm"
+                        title="Purge all RAM, disk, registry, and execution traces"
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                        <span>
+                          {translate("optimizer.eradicateBtn", language)}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -628,7 +984,9 @@ export default function Optimizer() {
               ) : (
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
               )}
-              {isTuningMemory ? "Compacting Working Set..." : "Tune Active Processes"}
+              {isTuningMemory
+                ? "Compacting Working Set..."
+                : "Tune Active Processes"}
             </button>
           </div>
         </div>
@@ -638,7 +996,6 @@ export default function Optimizer() {
       {selectedAppForClean && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl border border-border bg-surface shadow-2xl overflow-hidden">
-            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-surface-2/40">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-danger/10 text-danger border border-danger/20">
@@ -668,9 +1025,7 @@ export default function Optimizer() {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Optional Official Uninstaller Callout */}
               {selectedAppForClean.uninstall_string && (
                 <div className="rounded-xl border border-border/70 bg-surface-2/30 p-4">
                   <div className="flex items-center justify-between gap-4">
@@ -679,7 +1034,7 @@ export default function Optimizer() {
                         Step 1 (Optional): Standard Vendor Uninstaller
                       </h4>
                       <p className="text-[11px] text-text-muted mt-0.5">
-                        You can trigger the software&#39;s built-in uninstaller first, or proceed straight to residue eradication.
+                        Trigger the vendor uninstaller first, or proceed straight to residue eradication.
                       </p>
                     </div>
                     <button
@@ -687,7 +1042,9 @@ export default function Optimizer() {
                       className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text hover:bg-border active:scale-95 transition-all shrink-0"
                     >
                       <ExternalLink className="h-3.5 w-3.5 text-primary" />
-                      <span>{translate("optimizer.officialUninstallBtn", language)}</span>
+                      <span>
+                        {translate("optimizer.officialUninstallBtn", language)}
+                      </span>
                     </button>
                   </div>
                   {officialLaunchMsg && (
@@ -699,7 +1056,6 @@ export default function Optimizer() {
                 </div>
               )}
 
-              {/* Residual Traces Section */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -734,9 +1090,6 @@ export default function Optimizer() {
                     <Loader2 className="h-6 w-6 text-primary animate-spin mb-2" />
                     <span className="text-xs font-medium text-text">
                       Deep-scanning disk and registry for residual traces...
-                    </span>
-                    <span className="text-[11px] text-text-muted mt-1">
-                      Checking %LocalAppData%, %AppData%, ProgramData, and Windows Registry hives
                     </span>
                   </div>
                 ) : scanResult && scanResult.leftovers.length > 0 ? (
@@ -798,12 +1151,12 @@ export default function Optimizer() {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="border-t border-border px-6 py-4 bg-surface-2/40 flex flex-col sm:flex-row items-center justify-between gap-3">
               <span className="text-xs text-text-muted">
                 Selected for removal:{" "}
                 <strong className="text-text font-semibold">
-                  {selectedLeftoverIds.size} items ({formatBytes(selectedBytesTotal)})
+                  {selectedLeftoverIds.size} items (
+                  {formatBytes(selectedLeftoverBytes)})
                 </strong>
               </span>
 
@@ -854,7 +1207,240 @@ export default function Optimizer() {
                     ) : (
                       <Trash2 className="h-3.5 w-3.5" />
                     )}
-                    <span>{translate("optimizer.deleteSelectedTraces", language)}</span>
+                    <span>
+                      {translate("optimizer.deleteSelectedTraces", language)}
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ghost Eradicator Oblivion Modal Dialog */}
+      {selectedTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="relative w-full max-w-3xl max-h-[92vh] flex flex-col rounded-2xl border border-danger/40 bg-surface shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-danger/10">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger/20 text-danger border border-danger/30 shadow-inner">
+                  <Ghost className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-text truncate">
+                      {selectedTarget.name}
+                    </h3>
+                    <span className="rounded-md bg-danger/20 px-2 py-0.5 text-[10px] font-bold text-danger uppercase tracking-wider">
+                      Oblivion Eradication
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5">
+                    <span className="font-mono">{selectedTarget.exe_name}</span>
+                    <span>•</span>
+                    <span>{selectedTarget.category}</span>
+                    {selectedTarget.ram_usage_formatted && (
+                      <>
+                        <span>•</span>
+                        <span className="text-danger font-semibold">
+                          {selectedTarget.ram_usage_formatted} RAM
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedTarget(null)}
+                className="rounded-lg p-1.5 text-text-muted hover:bg-surface-2 hover:text-text transition-colors"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Oblivion Banner */}
+              <div className="rounded-xl border border-danger/30 bg-danger/10 p-4">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="h-5 w-5 text-danger shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-danger uppercase tracking-wider">
+                      Total Zero-Trace System Purge
+                    </h4>
+                    <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                      This operation will terminate all running instances from RAM, purge all UserAssist and Prefetch execution history, delete all Windows Firewall network records, and shred every residual file and registry key. It will be as if this program never existed on this PC.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {eradicationResult && (
+                <div className="flex items-start gap-3 rounded-xl border border-success/30 bg-success/10 p-4 text-xs font-medium text-success animate-in fade-in">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-sm font-bold text-success mb-1">
+                      Oblivion Eradication Complete
+                    </strong>
+                    <p className="leading-relaxed">{eradicationResult.message}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Items List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-text">
+                    Detected System Footprints & Forensic Traces
+                  </h4>
+                  {auditReport && auditReport.items.length > 0 && (
+                    <button
+                      onClick={handleSelectAllEradicationItems}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      {selectedItemIds.size === auditReport.items.length
+                        ? "Deselect All"
+                        : "Select All"}
+                    </button>
+                  )}
+                </div>
+
+                {isAuditing ? (
+                  <div className="flex flex-col items-center justify-center py-10 rounded-xl border border-dashed border-border bg-surface-2/20 text-center">
+                    <Loader2 className="h-6 w-6 text-danger animate-spin mb-2" />
+                    <span className="text-xs font-medium text-text">
+                      Auditing RAM working set, Prefetch files, UserAssist telemetry, and Firewall rules...
+                    </span>
+                  </div>
+                ) : auditReport && auditReport.items.length > 0 ? (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    {auditReport.items.map((item) => {
+                      const isChecked = selectedItemIds.has(item.id);
+                      return (
+                        <label
+                          key={item.id}
+                          className={`flex items-start justify-between gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                            isChecked
+                              ? "border-danger/40 bg-surface-2/70"
+                              : "border-border/60 bg-surface-2/20 hover:bg-surface-2/40"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() =>
+                                handleToggleEradicationItem(item.id)
+                              }
+                              className="h-4 w-4 mt-0.5 rounded border-border text-danger cursor-pointer shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+                                    item.layer === "Active RAM"
+                                      ? "bg-danger/20 text-danger border-danger/30"
+                                      : item.layer === "Filesystem"
+                                        ? "bg-primary/20 text-primary border-primary/30"
+                                        : item.layer === "Execution History"
+                                          ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                                          : item.layer === "Network & Firewall"
+                                            ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                                            : "bg-surface text-text-muted border-border"
+                                  }`}
+                                >
+                                  {item.layer}
+                                </span>
+                                <span className="text-xs font-semibold text-text truncate">
+                                  {item.title}
+                                </span>
+                              </div>
+                              <span
+                                className="text-xs font-mono text-text-muted block truncate"
+                                title={item.path_or_key}
+                              >
+                                {item.path_or_key}
+                              </span>
+                              <span className="text-[11px] text-text-muted block mt-0.5">
+                                {item.detail}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-xs font-semibold text-text-muted bg-surface px-2 py-0.5 rounded shrink-0">
+                            {item.size_formatted}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-text-muted">
+                    No active traces found for this target. The application is completely wiped or absent.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-border px-6 py-4 bg-surface-2/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs text-text-muted">
+                Selected for total purge:{" "}
+                <strong className="text-text font-semibold">
+                  {selectedItemIds.size} items ({formatBytes(selectedAuditBytes)})
+                </strong>
+              </span>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  onClick={() => setSelectedTarget(null)}
+                  className="rounded-lg border border-border px-4 py-2 text-xs font-medium text-text hover:bg-surface-2 transition-all"
+                >
+                  Cancel
+                </button>
+
+                {confirmOblivionPrompt ? (
+                  <div className="flex items-center gap-2 animate-in fade-in">
+                    <span className="text-xs text-danger font-medium flex items-center gap-1">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Zero-trace wipe?
+                    </span>
+                    <button
+                      onClick={handleExecuteOblivion}
+                      disabled={isEradicating}
+                      className="rounded-lg bg-danger px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-danger/90 active:scale-95 transition-all disabled:opacity-60"
+                    >
+                      {isEradicating ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "Yes, Wipe All Traces"
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setConfirmOblivionPrompt(false)}
+                      className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-text hover:bg-surface-2"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmOblivionPrompt(true)}
+                    disabled={
+                      isEradicating ||
+                      selectedItemIds.size === 0 ||
+                      isAuditing
+                    }
+                    className="flex items-center gap-1.5 rounded-lg bg-danger px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-danger/90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isEradicating ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="h-3.5 w-3.5" />
+                    )}
+                    <span>{translate("optimizer.executeOblivion", language)}</span>
                   </button>
                 )}
               </div>

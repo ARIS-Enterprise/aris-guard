@@ -9,6 +9,7 @@ mod cleaner;
 mod commands;
 mod config;
 mod db;
+mod eradicator;
 mod errors;
 mod health;
 mod logger;
@@ -168,6 +169,9 @@ fn main() {
             commands::scan_app_leftovers,
             commands::run_official_uninstaller,
             commands::delete_app_leftovers,
+            commands::list_eradication_candidates,
+            commands::audit_eradication_traces,
+            commands::execute_oblivion_eradication,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ARIS Guard application");

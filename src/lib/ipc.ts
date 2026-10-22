@@ -161,6 +161,56 @@ export interface DeepCleanResult {
   message: string;
 }
 
+export interface EradicationTarget {
+  id: string;
+  name: string;
+  exe_name: string;
+  path?: string;
+  category: string;
+  ram_usage_formatted?: string;
+  network_usage_formatted?: string;
+  pid?: number;
+}
+
+export interface EradicationItem {
+  id: string;
+  layer: string;
+  title: string;
+  detail: string;
+  path_or_key: string;
+  size_bytes: number;
+  size_formatted: string;
+  selected: boolean;
+  pid?: number;
+}
+
+export interface EradicationAuditReport {
+  target_name: string;
+  exe_name: string;
+  total_items: number;
+  total_bytes: number;
+  total_formatted: string;
+  ram_processes_count: number;
+  files_count: number;
+  registry_keys_count: number;
+  forensic_traces_count: number;
+  firewall_rules_count: number;
+  items: EradicationItem[];
+}
+
+export interface EradicationResult {
+  target_name: string;
+  terminated_pids: number[];
+  freed_ram_formatted: string;
+  deleted_files_count: number;
+  reclaimed_disk_formatted: string;
+  cleaned_registry_keys_count: number;
+  wiped_forensic_traces_count: number;
+  removed_firewall_rules_count: number;
+  errors: string[];
+  message: string;
+}
+
 export async function getSettings(): Promise<AppSettings> {
   return await invoke<AppSettings>("get_settings");
 }
@@ -251,4 +301,33 @@ export async function deleteAppLeftovers(
     items,
   });
 }
+
+export async function listEradicationCandidates(): Promise<
+  EradicationTarget[]
+> {
+  return await invoke<EradicationTarget[]>("list_eradication_candidates");
+}
+
+export async function auditEradicationTraces(
+  targetName: string,
+  exeName: string,
+  explicitPath?: string,
+): Promise<EradicationAuditReport> {
+  return await invoke<EradicationAuditReport>("audit_eradication_traces", {
+    targetName,
+    exeName,
+    explicitPath,
+  });
+}
+
+export async function executeOblivionEradication(
+  targetName: string,
+  items: EradicationItem[],
+): Promise<EradicationResult> {
+  return await invoke<EradicationResult>("execute_oblivion_eradication", {
+    targetName,
+    items,
+  });
+}
+
 

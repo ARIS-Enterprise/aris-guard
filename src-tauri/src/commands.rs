@@ -4,6 +4,9 @@ use tauri::State;
 use crate::cleaner::{self, CleanupResult, CleanupSummary};
 use crate::config::AppSettings;
 use crate::db::Database;
+use crate::eradicator::{
+    self, EradicationAuditReport, EradicationItem, EradicationResult, EradicationTarget,
+};
 use crate::errors::AppError;
 use crate::health::{self, ActivityEvent, SystemHealthMetrics};
 use crate::scanner::{self, ScanResultItem};
@@ -157,4 +160,27 @@ pub fn delete_app_leftovers(
     db: State<Database>,
 ) -> Result<DeepCleanResult, AppError> {
     uninstaller::delete_app_leftovers(&app_name, items, &db)
+}
+
+#[tauri::command]
+pub fn list_eradication_candidates() -> Result<Vec<EradicationTarget>, AppError> {
+    Ok(eradicator::list_eradication_candidates())
+}
+
+#[tauri::command]
+pub fn audit_eradication_traces(
+    target_name: String,
+    exe_name: String,
+    explicit_path: Option<String>,
+) -> Result<EradicationAuditReport, AppError> {
+    eradicator::audit_eradication_traces(&target_name, &exe_name, explicit_path.as_deref())
+}
+
+#[tauri::command]
+pub fn execute_oblivion_eradication(
+    target_name: String,
+    items: Vec<EradicationItem>,
+    db: State<Database>,
+) -> Result<EradicationResult, AppError> {
+    eradicator::execute_oblivion_eradication(&target_name, items, &db)
 }
