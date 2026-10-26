@@ -21,6 +21,7 @@
     "lastScan": "Last check: 2 mins ago",
     "junkFound": "Recoverable Space",
     "startupApps": "Startup Items",
+    "startupItems": "Startup Items",
     "startupCount": "4 apps enabled",
     "memoryUsage": "Memory Working Set",
     "memoryUsed": "24.6 MB agent idle",
@@ -74,6 +75,9 @@
     "executeOblivion": "Execute Total Oblivion (Wipe All Traces)",
     "confirmOblivion": "Are you sure? This will kill running processes in RAM, wipe Prefetch, delete all files, and remove all registry entries as if it never existed on this PC.",
     "userTemp": "User Temp Files (%TEMP%)",
+    "systemTemp": "Windows System Temp (Windows\\Temp)",
+    "recycleBin": "Windows Recycle Bin",
+    "browserCache": "Browser Web Caches",
     "thumbnails": "Explorer Thumbnail Cache",
     "crashDumps": "System Crash Reports",
     "werReports": "Windows Error Reporting"

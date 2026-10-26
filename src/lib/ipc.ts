@@ -330,4 +330,85 @@ export async function executeOblivionEradication(
   });
 }
 
+export interface MemoryBoostResult {
+  reclaimed_bytes: number;
+  reclaimed_formatted: string;
+  processes_optimized: number;
+  total_ram_formatted: string;
+  available_ram_formatted: string;
+  memory_load_percent: number;
+  message: string;
+}
+
+export interface SystemPerformanceMetrics {
+  cpu_usage_percent: number;
+  ram_used_mb: number;
+  ram_total_mb: number;
+  ram_used_percent: number;
+  disk_used_gb: number;
+  disk_total_gb: number;
+  disk_used_percent: number;
+}
+
+export interface QuarantineItem {
+  id: string;
+  original_path: string;
+  file_name: string;
+  stored_name: string;
+  sha256: string;
+  reason: string;
+  quarantined_at: string;
+  size_bytes: number;
+  size_formatted: string;
+}
+
+export interface BatchScanReport {
+  scan_type: string;
+  target_path: string;
+  total_scanned: number;
+  threats_found: number;
+  clean_count: number;
+  suspicious_count: number;
+  duration_ms: number;
+  items: ScanResultItem[];
+}
+
+export async function boostMemory(): Promise<MemoryBoostResult> {
+  return await invoke<MemoryBoostResult>("boost_memory");
+}
+
+export async function getSystemPerformance(): Promise<SystemPerformanceMetrics> {
+  return await invoke<SystemPerformanceMetrics>("get_system_performance");
+}
+
+export async function quarantineFile(
+  path: string,
+  reason: string,
+): Promise<QuarantineItem> {
+  return await invoke<QuarantineItem>("quarantine_file", { path, reason });
+}
+
+export async function listQuarantinedItems(): Promise<QuarantineItem[]> {
+  return await invoke<QuarantineItem[]>("list_quarantined_items");
+}
+
+export async function restoreQuarantinedItem(id: string): Promise<string> {
+  return await invoke<string>("restore_quarantined_item", { id });
+}
+
+export async function deleteQuarantinedItem(id: string): Promise<string> {
+  return await invoke<string>("delete_quarantined_item", { id });
+}
+
+export async function runBatchScan(
+  scanType: "quick" | "full" | "custom" | "file",
+  customPath?: string,
+): Promise<BatchScanReport> {
+  return await invoke<BatchScanReport>("run_batch_scan", {
+    scanType,
+    customPath,
+  });
+}
+
+
 

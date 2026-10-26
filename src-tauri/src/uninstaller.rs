@@ -494,8 +494,9 @@ pub fn run_official_uninstaller(uninstall_string: &str) -> Result<String, AppErr
 
     tracing::info!("Launching official uninstaller: {cmd}");
 
+    // Using start ensures uninstaller GUI launches cleanly without blocking or quote issues
     std::process::Command::new("cmd")
-        .args(["/C", cmd])
+        .args(["/C", "start", "", cmd])
         .spawn()
         .map_err(|e| AppError::Internal(format!("Failed to invoke official uninstaller: {e}")))?;
 

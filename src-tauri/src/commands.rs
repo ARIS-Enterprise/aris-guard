@@ -9,7 +9,9 @@ use crate::eradicator::{
 };
 use crate::errors::AppError;
 use crate::health::{self, ActivityEvent, SystemHealthMetrics};
-use crate::scanner::{self, ScanResultItem};
+use crate::process_mgr::{self, MemoryBoostResult, SystemPerformanceMetrics};
+use crate::quarantine::{self, QuarantineItem};
+use crate::scanner::{self, BatchScanReport, ScanResultItem};
 use crate::startup_mgr::{self, StartupAppItem};
 use crate::uninstaller::{self, AppLeftover, AppLeftoverScanResult, DeepCleanResult, InstalledApp};
 
@@ -66,7 +68,11 @@ pub fn scan_file_payload(
     content_base64: Option<String>,
     db: State<Database>,
 ) -> Result<ScanResultItem, AppError> {
-    let bytes = content_base64.map(|b64| b64.into_bytes());
+    use base64::prelude::*;
+    let bytes = content_base64.and_then(|b64| {
+        let cleaned = b64.trim();
+        BASE64_STANDARD.decode(cleaned).ok()
+    });
     scanner::scan_virtual_payload(&file_name, file_size, bytes.as_deref(), &db)
 }
 
@@ -92,6 +98,9 @@ pub fn run_cleanup(
 pub fn run_smart_fix(db: State<Database>) -> Result<CleanupResult, AppError> {
     let cats = vec![
         "user_temp".to_string(),
+        "system_temp".to_string(),
+        "recycle_bin".to_string(),
+        "browser_cache".to_string(),
         "crash_dumps".to_string(),
         "thumbnails".to_string(),
         "wer_reports".to_string(),
@@ -184,3 +193,47 @@ pub fn execute_oblivion_eradication(
 ) -> Result<EradicationResult, AppError> {
     eradicator::execute_oblivion_eradication(&target_name, items, &db)
 }
+
+#[tauri::command]
+pub fn boost_memory(db: State<Database>) -> Result<MemoryBoostResult, AppError> {
+    process_mgr::boost_memory(&db)
+}
+
+#[tauri::command]
+pub fn get_system_performance() -> Result<SystemPerformanceMetrics, AppError> {
+    process_mgr::get_system_performance()
+}
+
+#[tauri::command]
+pub fn quarantine_file(
+    path: String,
+    reason: String,
+    db: State<Database>,
+) -> Result<QuarantineItem, AppError> {
+    quarantine::quarantine_file(&path, &reason, &db)
+}
+
+#[tauri::command]
+pub fn list_quarantined_items(db: State<Database>) -> Result<Vec<QuarantineItem>, AppError> {
+    quarantine::list_quarantined_items(&db)
+}
+
+#[tauri::command]
+pub fn restore_quarantined_item(id: String, db: State<Database>) -> Result<String, AppError> {
+    quarantine::restore_quarantined_item(&id, &db)
+}
+
+#[tauri::command]
+pub fn delete_quarantined_item(id: String, db: State<Database>) -> Result<String, AppError> {
+    quarantine::delete_quarantined_item(&id, &db)
+}
+
+#[tauri::command]
+pub fn run_batch_scan(
+    scan_type: String,
+    custom_path: Option<String>,
+    db: State<Database>,
+) -> Result<BatchScanReport, AppError> {
+    scanner::run_batch_scan(&scan_type, custom_path.as_deref(), &db)
+}
+

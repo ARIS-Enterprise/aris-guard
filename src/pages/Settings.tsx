@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Monitor,
   Globe,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "../lib/store";
 import { translate, Language } from "../lib/i18n";
+import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 
 export default function Settings() {
   const {
@@ -24,8 +25,32 @@ export default function Settings() {
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    isEnabled()
+      .then((running) => {
+        if (active && settings && settings.start_with_windows !== running) {
+          updateSettings({ ...settings, start_with_windows: running });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleStartWithWindowsChange = async (enabled: boolean) => {
     if (settings) {
+      try {
+        if (enabled) {
+          await enable();
+        } else {
+          await disable();
+        }
+      } catch (err) {
+        console.warn("Autostart toggle warning:", err);
+      }
       await updateSettings({ ...settings, start_with_windows: enabled });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);

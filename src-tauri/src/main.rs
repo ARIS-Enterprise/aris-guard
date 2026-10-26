@@ -172,6 +172,13 @@ fn main() {
             commands::list_eradication_candidates,
             commands::audit_eradication_traces,
             commands::execute_oblivion_eradication,
+            commands::boost_memory,
+            commands::get_system_performance,
+            commands::quarantine_file,
+            commands::list_quarantined_items,
+            commands::restore_quarantined_item,
+            commands::delete_quarantined_item,
+            commands::run_batch_scan,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ARIS Guard application");

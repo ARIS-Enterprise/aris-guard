@@ -51,6 +51,18 @@ pub struct ScanResultItem {
     pub deep_analysis: Option<DeepAnalysisInfo>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchScanReport {
+    pub scan_type: String, // "quick" | "full" | "custom" | "file"
+    pub target_path: String,
+    pub total_scanned: usize,
+    pub threats_found: usize,
+    pub clean_count: usize,
+    pub suspicious_count: usize,
+    pub duration_ms: u64,
+    pub items: Vec<ScanResultItem>,
+}
+
 pub fn format_bytes(bytes: u64) -> String {
     crate::cleaner::format_bytes(bytes)
 }
@@ -348,11 +360,12 @@ pub fn scan_file_path(path_str: &str, db: &Database) -> Result<ScanResultItem, A
     let size_bytes = meta.len();
 
     // Read up to 16 MB for hash and deep heuristics
-    let bytes_to_read = size_bytes.min(16 * 1024 * 1024) as usize;
-    let data = match fs::read(path) {
-        Ok(d) => d,
-        Err(_) => vec![0u8; bytes_to_read],
-    };
+    let bytes_to_read = (size_bytes.min(16 * 1024 * 1024)) as usize;
+    let mut data = Vec::with_capacity(bytes_to_read.min(1024 * 1024));
+    if let Ok(mut f) = fs::File::open(path) {
+        use std::io::Read;
+        let _ = f.by_ref().take(bytes_to_read as u64).read_to_end(&mut data);
+    }
 
     let hash = compute_sha256(&data);
     let (verdict, score, reasons, engines, deep_analysis) =
@@ -422,6 +435,185 @@ pub fn scan_virtual_payload(
 
     save_scan_item(&item, db)?;
     Ok(item)
+}
+
+const TARGET_SCAN_EXTENSIONS: &[&str] = &[
+    ".exe", ".msi", ".dll", ".bat", ".cmd", ".ps1", ".vbs", ".scr", ".zip", ".rar", ".7z",
+    ".jar", ".iso", ".vhd", ".com", ".pif", ".cpl", ".wsf",
+];
+
+fn collect_directory_files(
+    dir: &Path,
+    depth: usize,
+    max_depth: usize,
+    max_files: usize,
+    files: &mut Vec<std::path::PathBuf>,
+) {
+    if files.len() >= max_files || depth > max_depth || !dir.exists() {
+        return;
+    }
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if files.len() >= max_files {
+                break;
+            }
+            let p = entry.path();
+            if p.is_file() {
+                let name = p.to_string_lossy().to_ascii_lowercase();
+                if TARGET_SCAN_EXTENSIONS.iter().any(|ext| name.ends_with(ext)) {
+                    files.push(p);
+                }
+            } else if p.is_dir() {
+                let folder_name = p
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                if folder_name != "node_modules"
+                    && folder_name != ".git"
+                    && folder_name != "winsxs"
+                    && folder_name != "$recycle.bin"
+                    && folder_name != "system volume information"
+                {
+                    collect_directory_files(&p, depth + 1, max_depth, max_files, files);
+                }
+            }
+        }
+    }
+}
+
+pub fn run_batch_scan(
+    scan_type: &str,
+    custom_path: Option<&str>,
+    db: &Database,
+) -> Result<BatchScanReport, AppError> {
+    let start_time = std::time::Instant::now();
+    let mut files_to_scan = Vec::new();
+    let target_display: String;
+
+    match scan_type {
+        "quick" => {
+            target_display = "Downloads, Desktop & Temp".to_string();
+            if let Some(dl) = dirs::download_dir() {
+                collect_directory_files(&dl, 0, 2, 20, &mut files_to_scan);
+            }
+            if let Some(dt) = dirs::desktop_dir() {
+                collect_directory_files(&dt, 0, 1, 15, &mut files_to_scan);
+            }
+            let temp = std::env::temp_dir();
+            collect_directory_files(&temp, 0, 1, 15, &mut files_to_scan);
+        }
+        "full" => {
+            target_display = "All User Libraries & Executable Paths".to_string();
+            if let Some(dl) = dirs::download_dir() {
+                collect_directory_files(&dl, 0, 3, 30, &mut files_to_scan);
+            }
+            if let Some(dt) = dirs::desktop_dir() {
+                collect_directory_files(&dt, 0, 2, 25, &mut files_to_scan);
+            }
+            if let Some(doc) = dirs::document_dir() {
+                collect_directory_files(&doc, 0, 2, 20, &mut files_to_scan);
+            }
+            let temp = std::env::temp_dir();
+            collect_directory_files(&temp, 0, 2, 25, &mut files_to_scan);
+        }
+        "custom" => {
+            if let Some(path_str) = custom_path {
+                target_display = path_str.to_string();
+                let dir = Path::new(path_str);
+                if !dir.exists() {
+                    return Err(AppError::NotFound(format!("Path does not exist: {path_str}")));
+                }
+                if dir.is_file() {
+                    files_to_scan.push(dir.to_path_buf());
+                } else {
+                    collect_directory_files(dir, 0, 4, 100, &mut files_to_scan);
+                    if files_to_scan.is_empty() {
+                        // Fallback to any files in folder if no executables found
+                        if let Ok(entries) = fs::read_dir(dir) {
+                            for entry in entries.flatten() {
+                                if files_to_scan.len() >= 50 {
+                                    break;
+                                }
+                                let p = entry.path();
+                                if p.is_file() {
+                                    files_to_scan.push(p);
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                return Err(AppError::Validation("Custom scan requires a valid folder path".to_string()));
+            }
+        }
+        "file" => {
+            if let Some(path_str) = custom_path {
+                target_display = path_str.to_string();
+                files_to_scan.push(Path::new(path_str).to_path_buf());
+            } else {
+                return Err(AppError::Validation("File scan requires a valid file path".to_string()));
+            }
+        }
+        _ => {
+            return Err(AppError::Validation(format!("Unknown scan type: {scan_type}")));
+        }
+    }
+
+    let mut items = Vec::new();
+    let mut threats_found = 0;
+    let mut clean_count = 0;
+    let mut suspicious_count = 0;
+
+    for file_path in &files_to_scan {
+        if let Some(path_str) = file_path.to_str() {
+            if let Ok(item) = scan_file_path(path_str, db) {
+                if item.verdict == "malicious" {
+                    threats_found += 1;
+                } else if item.verdict == "suspicious" {
+                    suspicious_count += 1;
+                } else {
+                    clean_count += 1;
+                }
+                items.push(item);
+            }
+        }
+    }
+
+    let duration_ms = start_time.elapsed().as_millis() as u64;
+
+    let report = BatchScanReport {
+        scan_type: scan_type.to_string(),
+        target_path: target_display,
+        total_scanned: items.len(),
+        threats_found,
+        clean_count,
+        suspicious_count,
+        duration_ms,
+        items,
+    };
+
+    // Log the batch scan event
+    let log_id = Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let detail = serde_json::json!({
+        "scan_type": scan_type,
+        "scanned_count": report.total_scanned,
+        "threats": threats_found,
+        "suspicious": suspicious_count,
+        "duration_ms": duration_ms,
+    })
+    .to_string();
+
+    let conn = db.connection();
+    if let Ok(guard) = conn.lock() {
+        let _ = guard.execute(
+            "INSERT INTO actions_log (id, kind, detail_json, created_at) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![log_id, "batch_scan", detail, now],
+        );
+    }
+
+    Ok(report)
 }
 
 fn save_scan_item(item: &ScanResultItem, db: &Database) -> Result<(), AppError> {
@@ -661,4 +853,56 @@ mod tests {
         assert!(score >= 75);
         assert!(reasons.iter().any(|r| r.contains("Disguised")));
     }
+
+    #[test]
+    fn test_batch_scan_quick_runs_without_panic() {
+        let db = Database::open_in_memory().expect("open test db");
+        let report = run_batch_scan("quick", None, &db).expect("batch quick scan");
+        assert_eq!(report.scan_type, "quick");
+        assert!(report.duration_ms <= 60000);
+    }
+
+    #[test]
+    fn test_batch_scan_custom_folder() {
+        let db = Database::open_in_memory().expect("open test db");
+        let temp_dir = std::env::temp_dir();
+        let folder = temp_dir.join(format!("scan_test_folder_{}", Uuid::new_v4()));
+        fs::create_dir_all(&folder).expect("create test folder");
+        let sample = folder.join("sample.exe");
+        fs::write(&sample, b"MZtestbinarycontent").expect("write sample");
+
+        let report = run_batch_scan("custom", Some(folder.to_str().unwrap()), &db)
+            .expect("batch custom scan");
+        assert_eq!(report.scan_type, "custom");
+        assert!(report.total_scanned >= 1);
+
+        let _ = fs::remove_dir_all(&folder);
+    }
+
+    #[test]
+    fn test_scan_virtual_payload_detects_eicar() {
+        let db = Database::open_in_memory().expect("open test db");
+        let eicar = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
+        let res = scan_virtual_payload("test_eicar.com", eicar.len() as u64, Some(eicar), &db)
+            .expect("scan virtual payload");
+        assert_eq!(res.verdict, "malicious");
+        assert_eq!(res.score, 100);
+        assert!(res.reasons.iter().any(|r| r.contains("EICAR")));
+    }
+
+    #[test]
+    fn test_batch_scan_custom_single_file() {
+        let db = Database::open_in_memory().expect("open test db");
+        let temp_dir = std::env::temp_dir();
+        let file_path = temp_dir.join(format!("single_file_test_{}.exe", Uuid::new_v4()));
+        fs::write(&file_path, b"MZtestsinglefile").expect("write test file");
+
+        let report = run_batch_scan("custom", Some(file_path.to_str().unwrap()), &db)
+            .expect("batch custom single file scan");
+        assert_eq!(report.total_scanned, 1);
+        assert_eq!(report.items.len(), 1);
+
+        let _ = fs::remove_file(&file_path);
+    }
 }
+

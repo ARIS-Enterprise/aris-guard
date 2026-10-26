@@ -420,14 +420,23 @@ pub fn audit_eradication_traces(
         if dir_path.exists() {
             let path_str = dir_path.to_string_lossy().to_string();
             if seen_paths.insert(path_str.to_ascii_lowercase()) {
-                let (f_count, bytes) = calculate_dir_size(&dir_path, 6);
+                let (f_count, bytes) = if dir_path.is_file() {
+                    (1, dir_path.metadata().map(|m| m.len()).unwrap_or(0))
+                } else {
+                    calculate_dir_size(&dir_path, 6)
+                };
                 files_count += f_count.max(1);
                 total_bytes += bytes;
+                let title = if dir_path.is_file() {
+                    format!("Delete Target File: {path_str}")
+                } else {
+                    format!("Delete Folder & Residual Assets: {path_str}")
+                };
                 items.push(EradicationItem {
                     id: Uuid::new_v4().to_string(),
                     layer: "Filesystem".to_string(),
-                    title: format!("Delete Folder & Residual Assets: {path_str}"),
-                    detail: format!("{desc} ({f_count} files, {})", format_bytes(bytes)),
+                    title,
+                    detail: format!("{desc} ({f_count} item(s), {})", format_bytes(bytes)),
                     path_or_key: path_str,
                     size_bytes: bytes,
                     size_formatted: format_bytes(bytes),
