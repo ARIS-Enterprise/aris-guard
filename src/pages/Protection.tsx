@@ -32,12 +32,23 @@ import {
   runBatchScan,
   BatchScanReport,
   quarantineFile,
+  deleteScanResult,
+  clearScanHistory,
+  deleteThreatFile,
 } from "../lib/ipc";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 export default function Protection() {
-  const { language, recentScans, addScanResult, settings, updateSettings, refreshAllData } =
-    useAppStore();
+  const {
+    language,
+    recentScans,
+    addScanResult,
+    removeScanResult,
+    clearRecentScans,
+    settings,
+    updateSettings,
+    refreshAllData,
+  } = useAppStore();
 
   const [scanMode, setScanMode] = useState<"file" | "quick" | "full" | "custom">("file");
   const [isDragging, setIsDragging] = useState(false);
@@ -50,7 +61,12 @@ export default function Protection() {
   const [customPathInput, setCustomPathInput] = useState("");
   const [batchReport, setBatchReport] = useState<BatchScanReport | null>(null);
   const [isQuarantining, setIsQuarantining] = useState(false);
-  const [quarantineBanner, setQuarantineBanner] = useState<string | null>(null);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
+  const [actionScanId, setActionScanId] = useState<string | null>(null);
+  const [feedbackBanner, setFeedbackBanner] = useState<{
+    text: string;
+    isError?: boolean;
+  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -212,31 +228,127 @@ export default function Protection() {
   const handleQuarantineThreat = async (item: ScanResultItem) => {
     try {
       if (item.path.startsWith("Dropped://")) {
-        setQuarantineBanner(
-          "Dropped in-memory payload cannot be quarantined because it has no permanent disk location.",
-        );
-        setTimeout(() => setQuarantineBanner(null), 5000);
+        setFeedbackBanner({
+          text: "Dropped in-memory payload cannot be quarantined because it has no permanent disk location.",
+          isError: true,
+        });
+        setTimeout(() => setFeedbackBanner(null), 5000);
         return;
       }
       setIsQuarantining(true);
+      setActionScanId(item.id);
       const reasonStr =
         item.reasons.length > 0
           ? item.reasons.join("; ")
           : "Heuristic Risk Detained";
       await quarantineFile(item.path, reasonStr);
-      setQuarantineBanner(
-        `File "${item.file_name}" has been isolated into Quarantine Vault.`,
-      );
+      setFeedbackBanner({
+        text: `File "${item.file_name}" has been isolated into Quarantine Vault.`,
+        isError: false,
+      });
       setSelectedScan(null);
       await refreshAllData();
       setIsQuarantining(false);
-      setTimeout(() => setQuarantineBanner(null), 4000);
+      setActionScanId(null);
+      setTimeout(() => setFeedbackBanner(null), 4000);
     } catch (err) {
       console.error("Quarantine threat failed:", err);
       const msg = err instanceof Error ? err.message : String(err);
-      setQuarantineBanner(`Quarantine failed: ${msg}`);
+      setFeedbackBanner({
+        text: `Quarantine failed: ${msg}`,
+        isError: true,
+      });
       setIsQuarantining(false);
-      setTimeout(() => setQuarantineBanner(null), 5000);
+      setActionScanId(null);
+      setTimeout(() => setFeedbackBanner(null), 5000);
+    }
+  };
+
+  const handleDeleteScanResult = async (item: ScanResultItem) => {
+    try {
+      setActionScanId(item.id);
+      await deleteScanResult(item.id);
+      removeScanResult(item.id);
+      if (selectedScan?.id === item.id) {
+        setSelectedScan(null);
+      }
+      await refreshAllData();
+      setActionScanId(null);
+      setFeedbackBanner({
+        text: translate("protection.recordDeletedSuccess", language),
+        isError: false,
+      });
+      setTimeout(() => setFeedbackBanner(null), 3000);
+    } catch (err) {
+      console.error("Failed to delete scan record:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setActionScanId(null);
+      setFeedbackBanner({
+        text: `Failed to delete record: ${msg}`,
+        isError: true,
+      });
+      setTimeout(() => setFeedbackBanner(null), 5000);
+    }
+  };
+
+  const handleClearAllHistory = async () => {
+    if (recentScans.length === 0) return;
+    if (!window.confirm(translate("protection.clearHistoryConfirm", language))) {
+      return;
+    }
+    try {
+      setIsClearingHistory(true);
+      await clearScanHistory();
+      clearRecentScans();
+      if (selectedScan) {
+        setSelectedScan(null);
+      }
+      await refreshAllData();
+      setIsClearingHistory(false);
+      setFeedbackBanner({
+        text: translate("protection.historyClearedSuccess", language),
+        isError: false,
+      });
+      setTimeout(() => setFeedbackBanner(null), 4000);
+    } catch (err) {
+      console.error("Failed to clear scan history:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setIsClearingHistory(false);
+      setFeedbackBanner({
+        text: `Failed to clear history: ${msg}`,
+        isError: true,
+      });
+      setTimeout(() => setFeedbackBanner(null), 5000);
+    }
+  };
+
+  const handleDeleteThreat = async (item: ScanResultItem) => {
+    if (!window.confirm(translate("protection.deleteThreatConfirm", language))) {
+      return;
+    }
+    try {
+      setActionScanId(item.id);
+      const msg = await deleteThreatFile(item.id, item.path);
+      removeScanResult(item.id);
+      if (selectedScan?.id === item.id) {
+        setSelectedScan(null);
+      }
+      await refreshAllData();
+      setActionScanId(null);
+      setFeedbackBanner({
+        text: msg || translate("protection.threatDeletedSuccess", language),
+        isError: false,
+      });
+      setTimeout(() => setFeedbackBanner(null), 4000);
+    } catch (err) {
+      console.error("Failed to delete threat:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setActionScanId(null);
+      setFeedbackBanner({
+        text: `Failed to delete threat: ${msg}`,
+        isError: true,
+      });
+      setTimeout(() => setFeedbackBanner(null), 5000);
     }
   };
 
@@ -311,14 +423,6 @@ export default function Protection() {
           </button>
         </div>
       </div>
-
-      {/* Quarantine Success Banner */}
-      {quarantineBanner && (
-        <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4 text-xs font-medium text-success transition-all animate-in fade-in">
-          <Check className="h-4 w-4 shrink-0" />
-          <span>{quarantineBanner}</span>
-        </div>
-      )}
 
       {/* Sentinel Status Banner */}
       <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-4 shadow-sm">
@@ -572,6 +676,32 @@ export default function Protection() {
         </div>
       )}
 
+      {/* Action Feedback Banner */}
+      {feedbackBanner && (
+        <div
+          className={`flex items-center justify-between rounded-xl border px-4 py-3 text-xs shadow-sm animate-in fade-in ${
+            feedbackBanner.isError
+              ? "border-danger/30 bg-danger/10 text-danger"
+              : "border-success/30 bg-success/10 text-success"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {feedbackBanner.isError ? (
+              <AlertTriangle className="h-4 w-4 shrink-0 text-danger" />
+            ) : (
+              <Check className="h-4 w-4 shrink-0 text-success" />
+            )}
+            <span>{feedbackBanner.text}</span>
+          </div>
+          <button
+            onClick={() => setFeedbackBanner(null)}
+            className="p-1 rounded-lg hover:bg-surface/50 text-current"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Recent Scans Table */}
       <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface-2/20">
@@ -583,69 +713,140 @@ export default function Protection() {
               {recentScans.length}
             </span>
           </div>
-          <span className="text-xs text-text-muted flex items-center gap-1.5">
-            <FolderCheck className="h-3.5 w-3.5 text-primary" />
-            Active Monitor
-          </span>
+          <div className="flex items-center gap-3">
+            {recentScans.length > 0 && (
+              <button
+                onClick={handleClearAllHistory}
+                disabled={isClearingHistory || actionScanId !== null}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2.5 py-1 text-xs font-semibold text-text-muted hover:text-danger hover:border-danger/30 hover:bg-danger/10 active:scale-95 transition-all disabled:opacity-50"
+                title={translate("protection.clearAllHistory", language)}
+              >
+                {isClearingHistory ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                <span>{translate("protection.clearAllHistory", language)}</span>
+              </button>
+            )}
+            <span className="text-xs text-text-muted flex items-center gap-1.5">
+              <FolderCheck className="h-3.5 w-3.5 text-primary" />
+              {translate("protection.activeMonitor", language)}
+            </span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-surface-2 text-text-muted font-medium border-b border-border">
-              <tr>
-                <th className="px-5 py-3">
-                  {translate("protection.fileName", language)}
-                </th>
-                <th className="px-5 py-3">
-                  {translate("protection.verdict", language)}
-                </th>
-                <th className="px-5 py-3">
-                  {translate("protection.size", language)}
-                </th>
-                <th className="px-5 py-3">
-                  {translate("protection.scannedAt", language)}
-                </th>
-                <th className="px-5 py-3 text-right">
-                  {translate("protection.action", language)}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50 text-text">
-              {recentScans.map((scan) => (
-                <tr
-                  key={scan.id}
-                  className="hover:bg-surface-2/40 transition-colors"
-                >
-                  <td className="px-5 py-3.5 font-medium text-text max-w-xs">
-                    <div className="flex items-center gap-2.5 truncate">
-                      {getFileIcon(scan.file_name)}
-                      <span className="truncate">{scan.file_name}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <Pill verdict={scan.verdict as Verdict} />
-                  </td>
-                  <td className="px-5 py-3.5 text-text-muted font-mono text-[11px]">
-                    {scan.size_formatted}
-                  </td>
-                  <td className="px-5 py-3.5 text-text-muted">
-                    {scan.scanned_at.includes("T")
-                      ? scan.scanned_at.split("T")[0]
-                      : scan.scanned_at}
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <button
-                      onClick={() => setSelectedScan(scan)}
-                      className="rounded-lg border border-border bg-surface-2 px-3 py-1 text-xs font-semibold text-primary hover:bg-border active:scale-95 transition-all"
-                    >
-                      Deep Report
-                    </button>
-                  </td>
+        {recentScans.length === 0 ? (
+          <div className="p-8 text-center space-y-2">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 text-success border border-success/20">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <p className="text-xs text-text-muted">
+              {translate("protection.noRecentScans", language)}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-surface-2 text-text-muted font-medium border-b border-border">
+                <tr>
+                  <th className="px-5 py-3">
+                    {translate("protection.fileName", language)}
+                  </th>
+                  <th className="px-5 py-3">
+                    {translate("protection.verdict", language)}
+                  </th>
+                  <th className="px-5 py-3">
+                    {translate("protection.size", language)}
+                  </th>
+                  <th className="px-5 py-3">
+                    {translate("protection.scannedAt", language)}
+                  </th>
+                  <th className="px-5 py-3 text-right">
+                    {translate("protection.action", language)}
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border/50 text-text">
+                {recentScans.map((scan) => {
+                  const isThreat =
+                    scan.verdict === "suspicious" || scan.verdict === "malicious";
+                  const isActionLoading = actionScanId === scan.id;
+
+                  return (
+                    <tr
+                      key={scan.id}
+                      className="hover:bg-surface-2/40 transition-colors"
+                    >
+                      <td className="px-5 py-3.5 font-medium text-text max-w-xs">
+                        <div className="flex items-center gap-2.5 truncate">
+                          {getFileIcon(scan.file_name)}
+                          <span className="truncate">{scan.file_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Pill verdict={scan.verdict as Verdict} />
+                          {scan.action === "Quarantined" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 border border-warning/30 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                              {translate("protection.quarantined", language)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-text-muted font-mono text-[11px]">
+                        {scan.size_formatted}
+                      </td>
+                      <td className="px-5 py-3.5 text-text-muted">
+                        {scan.scanned_at.includes("T")
+                          ? scan.scanned_at.split("T")[0]
+                          : scan.scanned_at}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isThreat && scan.action !== "Quarantined" && (
+                            <button
+                              onClick={() => handleQuarantineThreat(scan)}
+                              disabled={isActionLoading || isQuarantining || isClearingHistory}
+                              className="rounded-lg border border-warning/30 bg-warning/10 px-2 py-1 text-xs font-semibold text-warning hover:bg-warning/20 active:scale-95 transition-all disabled:opacity-50"
+                              title={translate("protection.quarantineThreat", language)}
+                            >
+                              <ShieldAlert className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {isThreat && (
+                            <button
+                              onClick={() => handleDeleteThreat(scan)}
+                              disabled={isActionLoading || isClearingHistory}
+                              className="rounded-lg border border-danger/30 bg-danger/10 px-2 py-1 text-xs font-semibold text-danger hover:bg-danger/20 active:scale-95 transition-all disabled:opacity-50"
+                              title={translate("protection.deleteThreat", language)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedScan(scan)}
+                            className="rounded-lg border border-border bg-surface-2 px-3 py-1 text-xs font-semibold text-primary hover:bg-border active:scale-95 transition-all"
+                          >
+                            {translate("protection.deepReport", language)}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteScanResult(scan)}
+                            disabled={isActionLoading || isClearingHistory}
+                            className="rounded-lg border border-border bg-surface-2 p-1 text-xs text-text-muted hover:text-danger hover:bg-danger/10 hover:border-danger/30 active:scale-95 transition-all disabled:opacity-50"
+                            title={translate("protection.deleteRecord", language)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Advanced Deep Malware & Pre-Execution Safety Inspection Modal */}
@@ -694,6 +895,21 @@ export default function Protection() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {feedbackBanner && feedbackBanner.isError && (
+                <div className="flex items-center justify-between rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-xs text-danger shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-danger" />
+                    <span>{feedbackBanner.text}</span>
+                  </div>
+                  <button
+                    onClick={() => setFeedbackBanner(null)}
+                    className="p-1 rounded-lg hover:bg-surface/50 text-current"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
               {/* Safety Verdict Status Banner */}
               <div
                 className={`rounded-xl border p-4 ${
@@ -717,6 +933,11 @@ export default function Protection() {
                           ? "Safe to Run"
                           : "High Risk Detected")}
                     </span>
+                    {selectedScan.action === "Quarantined" && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-warning/20 border border-warning/40 px-2 py-0.5 text-[11px] font-semibold text-warning">
+                        {translate("protection.quarantined", language)}
+                      </span>
+                    )}
                   </div>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface/50 border border-current">
                     Threat Score: {selectedScan.score} / 100
@@ -885,23 +1106,48 @@ export default function Protection() {
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-border px-6 py-4 bg-surface-2/40 flex items-center justify-between gap-3">
+            <div className="border-t border-border px-6 py-4 bg-surface-2/40 flex flex-wrap items-center justify-between gap-3">
               <span className="text-xs text-text-muted">
                 Engines: {selectedScan.engines.join(", ")}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => handleDeleteScanResult(selectedScan)}
+                  disabled={actionScanId === selectedScan.id || isClearingHistory}
+                  className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-2 px-3.5 py-2 text-xs font-semibold text-text-muted hover:text-danger hover:bg-danger/10 hover:border-danger/30 active:scale-95 transition-all disabled:opacity-60"
+                  title={translate("protection.deleteRecord", language)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>{translate("protection.deleteRecord", language)}</span>
+                </button>
+                {(selectedScan.verdict === "suspicious" ||
+                  selectedScan.verdict === "malicious") && (
+                  <button
+                    onClick={() => handleDeleteThreat(selectedScan)}
+                    disabled={actionScanId === selectedScan.id || isClearingHistory}
+                    className="flex items-center gap-1.5 rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-2 text-xs font-semibold text-danger hover:bg-danger/20 active:scale-95 transition-all disabled:opacity-60"
+                    title={translate("protection.deleteThreat", language)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>{translate("protection.deleteThreat", language)}</span>
+                  </button>
+                )}
                 {selectedScan.action !== "Quarantined" && (
                   <button
                     onClick={() => handleQuarantineThreat(selectedScan)}
-                    disabled={isQuarantining}
-                    className="flex items-center gap-1.5 rounded-xl border border-danger/40 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger hover:bg-danger/20 active:scale-95 transition-all disabled:opacity-60"
+                    disabled={
+                      isQuarantining ||
+                      actionScanId === selectedScan.id ||
+                      isClearingHistory
+                    }
+                    className="flex items-center gap-1.5 rounded-xl border border-warning/40 bg-warning/10 px-4 py-2 text-xs font-semibold text-warning hover:bg-warning/20 active:scale-95 transition-all disabled:opacity-60"
                   >
-                    {isQuarantining ? (
+                    {isQuarantining && actionScanId === selectedScan.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <ShieldAlert className="h-3.5 w-3.5" />
                     )}
-                    <span>Quarantine Threat</span>
+                    <span>{translate("protection.quarantineThreat", language)}</span>
                   </button>
                 )}
                 <button

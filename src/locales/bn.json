@@ -49,7 +49,20 @@
     "dangerousPayload": "বিপজ্জনক থ্রেট - রান করবেন না",
     "archiveInspection": "আর্কাইভ ও অভ্যন্তরীণ ফাইল বিশ্লেষণ",
     "authenticodeStatus": "অথেনটিকোড ডিজিটাল সিগনেচার",
-    "entropyAnalysis": "শ্যানন বাইনারি এন্ট্রপি"
+    "entropyAnalysis": "শ্যানন বাইনারি এন্ট্রপি",
+    "clearAllHistory": "সকল ইতিহাস মুছুন",
+    "clearHistoryConfirm": "আপনি কি নিশ্চিত যে সকল স্ক্যান ইতিহাস মুছে ফেলতে চান?",
+    "deleteRecord": "রেকর্ড মুছুন",
+    "deleteThreat": "থ্রেট মুছুন",
+    "deleteThreatConfirm": "আপনি কি নিশ্চিত যে এই ক্ষতিকারক ফাইলটি স্থায়ীভাবে মুছে ফেলতে চান?",
+    "quarantineThreat": "কোয়ারেন্টাইন করুন",
+    "quarantined": "কোয়ারেন্টাইনকৃত",
+    "noRecentScans": "কোনো স্ক্যান রেকর্ড নেই। ইতিহাস পরিষ্কার।",
+    "threatDeletedSuccess": "বিপজ্জনক ফাইল ও রেকর্ড সম্পূর্ণ মুছে ফেলা হয়েছে।",
+    "recordDeletedSuccess": "স্ক্যান রেকর্ড ইতিহাস থেকে মুছে ফেলা হয়েছে।",
+    "historyClearedSuccess": "সকল স্ক্যান রেকর্ড সফলভাবে মুছে ফেলা হয়েছে।",
+    "deepReport": "বিস্তারিত রিপোর্ট",
+    "activeMonitor": "সক্রিয় মনিটর"
   },
   "optimizer": {
     "title": "সিস্টেম অপ্টিমাইজার",

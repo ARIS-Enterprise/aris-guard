@@ -134,22 +134,28 @@ mod tests {
 
     #[test]
     fn test_invalid_language() {
-        let mut settings = AppSettings::default();
-        settings.language = "es".into();
+        let settings = AppSettings {
+            language: "es".into(),
+            ..Default::default()
+        };
         assert!(settings.validate().is_err());
     }
 
     #[test]
     fn test_invalid_theme() {
-        let mut settings = AppSettings::default();
-        settings.theme = "neon".into();
+        let settings = AppSettings {
+            theme: "neon".into(),
+            ..Default::default()
+        };
         assert!(settings.validate().is_err());
     }
 
     #[test]
     fn test_invalid_cleaner_age() {
-        let mut settings = AppSettings::default();
-        settings.cleaner_min_age_hours = 0;
+        let settings = AppSettings {
+            cleaner_min_age_hours: 0,
+            ..Default::default()
+        };
         assert!(settings.validate().is_err());
     }
 }

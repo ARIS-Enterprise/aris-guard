@@ -712,11 +712,20 @@ pub fn get_recent_scans(db: &Database, limit: usize) -> Result<Vec<ScanResultIte
     for row in rows.flatten() {
         items.push(row);
     }
+    let is_initialized: bool = guard
+        .query_row(
+            "SELECT COUNT(*) FROM app_metadata WHERE key = 'scans_initialized'",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .map(|c| c > 0)
+        .unwrap_or(false);
+
     drop(stmt);
     drop(guard);
 
-    // Seed baseline initial entries if table is completely empty
-    if items.is_empty() {
+    // Seed baseline initial entries ONLY on very first initialization if table is empty
+    if items.is_empty() && !is_initialized {
         let baseline = vec![
             (
                 "node-v22-win-x64.msi",
@@ -816,9 +825,123 @@ pub fn get_recent_scans(db: &Database, limit: usize) -> Result<Vec<ScanResultIte
             let _ = save_scan_item(&item, db);
             items.push(item);
         }
+
+        if let Ok(guard) = db.connection().lock() {
+            let _ = guard.execute(
+                "INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('scans_initialized', 'true')",
+                [],
+            );
+        }
     }
 
     Ok(items)
+}
+
+/// Deletes an individual scan inspection record by ID from SQLite.
+pub fn delete_scan_result(id: &str, db: &Database) -> Result<(), AppError> {
+    let conn = db.connection();
+    let guard = conn
+        .lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock DB: {e}")))?;
+
+    guard.execute(
+        "DELETE FROM scan_results WHERE id = ?1",
+        rusqlite::params![id],
+    )?;
+
+    let _ = guard.execute(
+        "INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('scans_initialized', 'true')",
+        [],
+    );
+
+    let log_id = Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let detail = serde_json::json!({ "id": id }).to_string();
+    let _ = guard.execute(
+        "INSERT INTO actions_log (id, kind, detail_json, created_at) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![log_id, "delete_scan_result", detail, now],
+    );
+
+    Ok(())
+}
+
+/// Clears all security inspection history records from SQLite.
+pub fn clear_scan_history(db: &Database) -> Result<(), AppError> {
+    let conn = db.connection();
+    let guard = conn
+        .lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock DB: {e}")))?;
+
+    guard.execute("DELETE FROM scan_results", [])?;
+
+    let _ = guard.execute(
+        "INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('scans_initialized', 'true')",
+        [],
+    );
+
+    let log_id = Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let _ = guard.execute(
+        "INSERT INTO actions_log (id, kind, detail_json, created_at) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![log_id, "clear_scan_history", "{}", now],
+    );
+
+    Ok(())
+}
+
+/// Permanently removes a threat file from disk (if present) and removes its record from SQLite.
+#[allow(clippy::permissions_set_readonly_false)]
+pub fn delete_threat_file(id: &str, path: &str, db: &Database) -> Result<String, AppError> {
+    if !path.starts_with("Dropped://") {
+        let p = Path::new(path);
+        if p.exists() && p.is_file() {
+            if let Ok(meta) = p.metadata() {
+                let mut perms = meta.permissions();
+                if perms.readonly() {
+                    perms.set_readonly(false);
+                    let _ = std::fs::set_permissions(p, perms);
+                }
+            }
+            if let Err(e) = std::fs::remove_file(p) {
+                tracing::warn!("Failed to delete threat file {path}: {e}");
+                return Err(AppError::Io(e));
+            }
+        }
+    }
+
+    let conn = db.connection();
+    let guard = conn
+        .lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock DB: {e}")))?;
+
+    guard.execute(
+        "DELETE FROM scan_results WHERE id = ?1",
+        rusqlite::params![id],
+    )?;
+
+    let _ = guard.execute(
+        "INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('scans_initialized', 'true')",
+        [],
+    );
+
+    let log_id = Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let detail = serde_json::json!({
+        "id": id,
+        "path": path,
+    })
+    .to_string();
+    let _ = guard.execute(
+        "INSERT INTO actions_log (id, kind, detail_json, created_at) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![log_id, "delete_threat_file", detail, now],
+    );
+
+    let file_name = Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("Threat file");
+
+    Ok(format!("{file_name} eradicated successfully"))
 }
 
 #[cfg(test)]
@@ -903,6 +1026,71 @@ mod tests {
         assert_eq!(report.items.len(), 1);
 
         let _ = fs::remove_file(&file_path);
+    }
+
+    #[test]
+    fn test_delete_scan_result() {
+        let db = Database::open_in_memory().expect("open test db");
+        let items = get_recent_scans(&db, 10).expect("get_recent_scans");
+        assert_eq!(items.len(), 4);
+        let id_to_delete = items[0].id.clone();
+
+        delete_scan_result(&id_to_delete, &db).expect("delete_scan_result");
+        let updated = get_recent_scans(&db, 10).expect("get_recent_scans after delete");
+        assert_eq!(updated.len(), 3);
+        assert!(!updated.iter().any(|item| item.id == id_to_delete));
+    }
+
+    #[test]
+    fn test_clear_scan_history_and_persistence() {
+        let db = Database::open_in_memory().expect("open test db");
+        let items = get_recent_scans(&db, 10).expect("get_recent_scans initial");
+        assert_eq!(items.len(), 4);
+
+        clear_scan_history(&db).expect("clear_scan_history");
+        let updated = get_recent_scans(&db, 10).expect("get_recent_scans after clear");
+        assert_eq!(updated.len(), 0);
+
+        // Verify that subsequent queries do not resurrect dummy baseline items
+        let recheck = get_recent_scans(&db, 10).expect("get_recent_scans recheck");
+        assert_eq!(recheck.len(), 0);
+    }
+
+    #[test]
+    fn test_delete_threat_file() {
+        let db = Database::open_in_memory().expect("open test db");
+        let temp_dir = std::env::temp_dir();
+        let file_path = temp_dir.join(format!("threat_to_delete_{}.exe", Uuid::new_v4()));
+        fs::write(&file_path, b"MZthreatbytes").expect("write threat file");
+
+        let scanned = scan_file_path(file_path.to_str().unwrap(), &db).expect("scan threat");
+        assert!(file_path.exists());
+
+        let res = delete_threat_file(&scanned.id, file_path.to_str().unwrap(), &db)
+            .expect("delete_threat_file");
+        assert!(res.contains("eradicated"));
+        assert!(!file_path.exists());
+
+        let remaining = get_recent_scans(&db, 20).expect("get_recent_scans");
+        assert!(!remaining.iter().any(|item| item.id == scanned.id));
+    }
+
+    #[test]
+    fn test_delete_all_scan_results_individually_persists() {
+        let db = Database::open_in_memory().expect("open test db");
+        let items = get_recent_scans(&db, 10).expect("get_recent_scans initial");
+        assert_eq!(items.len(), 4);
+
+        for item in items {
+            delete_scan_result(&item.id, &db).expect("delete single scan result");
+        }
+
+        let updated = get_recent_scans(&db, 10).expect("get_recent_scans after deleting all");
+        assert_eq!(updated.len(), 0);
+
+        // Verify baseline records are not resurrected
+        let recheck = get_recent_scans(&db, 10).expect("recheck after individual deletions");
+        assert_eq!(recheck.len(), 0);
     }
 }
 

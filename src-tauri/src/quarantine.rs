@@ -98,6 +98,11 @@ pub fn quarantine_file(
         rusqlite::params![id, path_str, stored_name, sha256, reason, now],
     )?;
 
+    let _ = guard.execute(
+        "UPDATE scan_results SET action = 'Quarantined' WHERE path = ?1 OR sha256 = ?2",
+        rusqlite::params![path_str, sha256],
+    );
+
     // Log the quarantine action
     let log_id = Uuid::new_v4().to_string();
     let detail = serde_json::json!({

@@ -44,6 +44,8 @@ interface AppState {
   refreshAllData: () => Promise<void>;
   triggerSmartFix: () => Promise<CleanupResult | null>;
   addScanResult: (item: ScanResultItem) => void;
+  removeScanResult: (id: string) => void;
+  clearRecentScans: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -165,5 +167,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       recentScans: [item, ...state.recentScans.filter((s) => s.id !== item.id)],
     }));
+  },
+
+  removeScanResult: (id: string) => {
+    set((state) => ({
+      recentScans: state.recentScans.filter((s) => s.id !== id),
+    }));
+  },
+
+  clearRecentScans: () => {
+    set({ recentScans: [] });
   },
 }));

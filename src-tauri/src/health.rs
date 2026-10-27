@@ -143,6 +143,22 @@ pub fn get_activity_events(db: &Database) -> Result<Vec<ActivityEvent>, AppError
                         detail: "Junk pruned, system health optimized to 98%".to_string(),
                         time: "Just now".to_string(),
                     });
+                } else if kind == "clear_scan_history" {
+                    events.push(ActivityEvent {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        event_type: "scans".to_string(),
+                        title: "Security Inspection History Cleared".to_string(),
+                        detail: "All inspection records were removed from history".to_string(),
+                        time: "Recent".to_string(),
+                    });
+                } else if kind == "delete_threat_file" {
+                    events.push(ActivityEvent {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        event_type: "scans".to_string(),
+                        title: "Threat File Eradicated".to_string(),
+                        detail: "Threat file permanently removed from disk and records".to_string(),
+                        time: "Recent".to_string(),
+                    });
                 }
             }
         }

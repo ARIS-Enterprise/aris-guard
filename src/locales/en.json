@@ -49,7 +49,20 @@
     "dangerousPayload": "Dangerous Threat - Do Not Run",
     "archiveInspection": "Archive Structural Inspection",
     "authenticodeStatus": "Authenticode Digital Signature",
-    "entropyAnalysis": "Shannon Binary Entropy"
+    "entropyAnalysis": "Shannon Binary Entropy",
+    "clearAllHistory": "Clear All History",
+    "clearHistoryConfirm": "Are you sure you want to clear all inspection history?",
+    "deleteRecord": "Delete Record",
+    "deleteThreat": "Delete Threat",
+    "deleteThreatConfirm": "Are you sure you want to permanently delete this threat file?",
+    "quarantineThreat": "Quarantine Threat",
+    "quarantined": "Quarantined",
+    "noRecentScans": "No security inspection records. History is clean.",
+    "threatDeletedSuccess": "Threat file eradicated and record removed.",
+    "recordDeletedSuccess": "Inspection record removed from history.",
+    "historyClearedSuccess": "All security inspection records have been cleared.",
+    "deepReport": "Deep Report",
+    "activeMonitor": "Active Monitor"
   },
   "optimizer": {
     "title": "System Optimizer",

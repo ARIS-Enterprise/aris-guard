@@ -82,6 +82,25 @@ pub fn get_recent_scans(db: State<Database>) -> Result<Vec<ScanResultItem>, AppE
 }
 
 #[tauri::command]
+pub fn delete_scan_result(id: String, db: State<Database>) -> Result<(), AppError> {
+    scanner::delete_scan_result(&id, &db)
+}
+
+#[tauri::command]
+pub fn clear_scan_history(db: State<Database>) -> Result<(), AppError> {
+    scanner::clear_scan_history(&db)
+}
+
+#[tauri::command]
+pub fn delete_threat_file(
+    id: String,
+    path: String,
+    db: State<Database>,
+) -> Result<String, AppError> {
+    scanner::delete_threat_file(&id, &path, &db)
+}
+
+#[tauri::command]
 pub fn preview_cleanup() -> Result<CleanupSummary, AppError> {
     Ok(cleaner::preview_cleanup())
 }

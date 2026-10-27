@@ -243,6 +243,21 @@ export async function getRecentScans(): Promise<ScanResultItem[]> {
   return await invoke<ScanResultItem[]>("get_recent_scans");
 }
 
+export async function deleteScanResult(id: string): Promise<void> {
+  return await invoke<void>("delete_scan_result", { id });
+}
+
+export async function clearScanHistory(): Promise<void> {
+  return await invoke<void>("clear_scan_history");
+}
+
+export async function deleteThreatFile(
+  id: string,
+  path: string,
+): Promise<string> {
+  return await invoke<string>("delete_threat_file", { id, path });
+}
+
 export async function previewCleanup(): Promise<CleanupSummary> {
   return await invoke<CleanupSummary>("preview_cleanup");
 }
