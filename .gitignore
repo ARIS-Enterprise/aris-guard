@@ -8,6 +8,7 @@ AGENTS*.md
 src-tauri/target/
 **/*.rs.bk
 *.pdb
+*.exe
 
 # Node & Frontend
 node_modules/
