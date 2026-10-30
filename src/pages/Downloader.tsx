@@ -14,6 +14,8 @@ import {
   RefreshCw,
   X,
   Radio,
+  ExternalLink,
+  Music,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -23,6 +25,7 @@ import {
   listDownloadsLibrary,
   deleteDownloadRecord,
   openMediaFileFolder,
+  playMediaExternally,
   checkDownloaderEngineStatus,
   MediaMetadataResponse,
   MediaFormatOption,
@@ -248,6 +251,15 @@ export default function Downloader() {
       await openMediaFileFolder(filePath);
     } catch (err) {
       console.error("Open folder failed:", err);
+    }
+  };
+
+  const handlePlayExternal = async (filePath: string) => {
+    try {
+      await playMediaExternally(filePath);
+    } catch (err) {
+      console.error("External play failed:", err);
+      await handleOpenFolder(filePath);
     }
   };
 
@@ -583,6 +595,8 @@ export default function Downloader() {
                         alt={record.title}
                         className="h-full w-full object-cover"
                       />
+                    ) : record.format === "m4a" || record.format === "mp3" ? (
+                      <Music className="h-6 w-6 text-primary opacity-80" />
                     ) : (
                       <FileVideo className="h-6 w-6 text-text-muted opacity-50" />
                     )}
@@ -625,6 +639,14 @@ export default function Downloader() {
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
                     <span>{translate("downloader.playBtn", language)}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handlePlayExternal(record.file_path)}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-surface-2 text-text-muted hover:text-primary hover:bg-border active:scale-95 transition-all"
+                    title="Play in Windows Media Player or VLC"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
                   </button>
 
                   <button

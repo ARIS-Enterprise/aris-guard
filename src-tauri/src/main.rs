@@ -190,6 +190,7 @@ fn main() {
             commands::list_downloads_library,
             commands::delete_download_record,
             commands::open_media_file_folder,
+            commands::play_media_externally,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ARIS Guard application");

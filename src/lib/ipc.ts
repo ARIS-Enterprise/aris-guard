@@ -526,6 +526,10 @@ export async function openMediaFileFolder(filePath: string): Promise<void> {
   return await invoke<void>("open_media_file_folder", { filePath });
 }
 
+export async function playMediaExternally(filePath: string): Promise<void> {
+  return await invoke<void>("play_media_externally", { filePath });
+}
+
 
 
 

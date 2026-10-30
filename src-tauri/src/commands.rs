@@ -300,3 +300,8 @@ pub fn delete_download_record(
 pub fn open_media_file_folder(file_path: String) -> Result<(), AppError> {
     downloader::open_media_file_folder(&file_path)
 }
+
+#[tauri::command]
+pub fn play_media_externally(file_path: String) -> Result<(), AppError> {
+    downloader::play_media_externally(&file_path)
+}

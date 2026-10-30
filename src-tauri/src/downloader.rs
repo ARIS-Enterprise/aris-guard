@@ -122,17 +122,21 @@ pub fn format_bytes(bytes: u64) -> String {
 }
 
 pub fn find_ytdlp_binary() -> Result<PathBuf, AppError> {
-    // 1. Check local AppData ARIS_Guard bin
+    // 1. Check local AppData ARIS Guard bin (and legacy ARIS_Guard)
     if let Some(local_data) = dirs::data_local_dir() {
-        let app_bin = local_data.join("ARIS_Guard").join("bin").join("yt-dlp.exe");
+        let app_bin = local_data.join("ARIS Guard").join("bin").join("yt-dlp.exe");
         if app_bin.exists() {
             return Ok(app_bin);
+        }
+        let legacy_bin = local_data.join("ARIS_Guard").join("bin").join("yt-dlp.exe");
+        if legacy_bin.exists() {
+            return Ok(legacy_bin);
         }
     }
 
     // 2. Check standard Python Scripts directories
     if let Some(local_data) = dirs::data_local_dir() {
-        let py_dirs = ["Python313", "Python312", "Python311", "Python310"];
+        let py_dirs = ["Python314", "Python313", "Python312", "Python311", "Python310"];
         for py in py_dirs {
             let py_bin = local_data
                 .join("Programs")
@@ -161,6 +165,40 @@ pub fn find_ytdlp_binary() -> Result<PathBuf, AppError> {
     Err(AppError::Internal(
         "yt-dlp engine not found. Please ensure yt-dlp is installed or placed in PATH.".to_string(),
     ))
+}
+
+pub fn find_ffmpeg_binary() -> Option<PathBuf> {
+    // 1. Check local AppData ARIS Guard bin (and legacy ARIS_Guard)
+    if let Some(local_data) = dirs::data_local_dir() {
+        let app_ffmpeg = local_data.join("ARIS Guard").join("bin").join("ffmpeg.exe");
+        if app_ffmpeg.exists() {
+            return Some(app_ffmpeg);
+        }
+        let legacy_ffmpeg = local_data.join("ARIS_Guard").join("bin").join("ffmpeg.exe");
+        if legacy_ffmpeg.exists() {
+            return Some(legacy_ffmpeg);
+        }
+    }
+
+    // 2. Check BlueStacks bundled ffmpeg
+    let bluestacks_ffmpeg = PathBuf::from(r"C:\Program Files\BlueStacks_msi5\ffmpeg.exe");
+    if bluestacks_ffmpeg.exists() {
+        return Some(bluestacks_ffmpeg);
+    }
+
+    // 3. Test if ffmpeg is accessible globally on PATH
+    let mut cmd = std::process::Command::new("ffmpeg");
+    cmd.arg("-version");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    if let Ok(output) = cmd.output() {
+        if output.status.success() {
+            return Some(PathBuf::from("ffmpeg"));
+        }
+    }
+
+    None
 }
 
 pub fn check_downloader_engine_status() -> EngineStatus {
@@ -255,7 +293,7 @@ pub fn probe_media_url(url: &str) -> Result<MediaMetadataResponse, AppError> {
 
         if has_1080 {
             formats.push(MediaFormatOption {
-                format_id: "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]".to_string(),
+                format_id: "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080][ext=mp4]/best[height<=1080]/best".to_string(),
                 label: "1080p Full HD".to_string(),
                 resolution: "1920x1080".to_string(),
                 ext: "mp4".to_string(),
@@ -267,7 +305,7 @@ pub fn probe_media_url(url: &str) -> Result<MediaMetadataResponse, AppError> {
 
         if has_720 || (!has_1080 && !has_480 && !has_360) {
             formats.push(MediaFormatOption {
-                format_id: "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]".to_string(),
+                format_id: "bestvideo[vcodec^=avc][height<=720]+bestaudio[acodec^=mp4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720][ext=mp4]/best[height<=720]/best".to_string(),
                 label: "720p HD".to_string(),
                 resolution: "1280x720".to_string(),
                 ext: "mp4".to_string(),
@@ -279,7 +317,7 @@ pub fn probe_media_url(url: &str) -> Result<MediaMetadataResponse, AppError> {
 
         if has_480 {
             formats.push(MediaFormatOption {
-                format_id: "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]".to_string(),
+                format_id: "bestvideo[vcodec^=avc][height<=480]+bestaudio[acodec^=mp4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480][ext=mp4]/best[height<=480]/best".to_string(),
                 label: "480p SD".to_string(),
                 resolution: "854x480".to_string(),
                 ext: "mp4".to_string(),
@@ -291,7 +329,7 @@ pub fn probe_media_url(url: &str) -> Result<MediaMetadataResponse, AppError> {
 
         if has_360 {
             formats.push(MediaFormatOption {
-                format_id: "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]".to_string(),
+                format_id: "bestvideo[vcodec^=avc][height<=360]+bestaudio[acodec^=mp4a]/bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360][ext=mp4]/best[height<=360]/best".to_string(),
                 label: "360p Mobile".to_string(),
                 resolution: "640x360".to_string(),
                 ext: "mp4".to_string(),
@@ -303,7 +341,7 @@ pub fn probe_media_url(url: &str) -> Result<MediaMetadataResponse, AppError> {
 
         // Always offer Audio Only (MP3 / M4A)
         formats.push(MediaFormatOption {
-            format_id: "bestaudio[ext=m4a]/bestaudio/best".to_string(),
+            format_id: "bestaudio[acodec^=mp4a]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best".to_string(),
             label: "Audio Only (M4A/MP3)".to_string(),
             resolution: "Audio".to_string(),
             ext: "m4a".to_string(),
@@ -315,7 +353,7 @@ pub fn probe_media_url(url: &str) -> Result<MediaMetadataResponse, AppError> {
 
     if formats.is_empty() {
         formats.push(MediaFormatOption {
-            format_id: "best[ext=mp4]/best".to_string(),
+            format_id: "bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/best[ext=mp4]/best".to_string(),
             label: "Best Quality Video".to_string(),
             resolution: "Best Available".to_string(),
             ext: "mp4".to_string(),
@@ -376,20 +414,27 @@ pub async fn start_media_download(
 
     let chosen_format = req
         .format_id
-        .unwrap_or_else(|| "best[ext=mp4]/best".to_string());
+        .unwrap_or_else(|| "bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/best[ext=mp4]/best".to_string());
 
     let mut cmd = tokio::process::Command::new(&bin_path);
     cmd.args([
         "--no-playlist",
         "--newline",
+        "--windows-filenames",
         "--progress-template",
         "download:%(progress._percent_str)s;%(progress._speed_str)s;%(progress._eta_str)s;%(progress.downloaded_bytes)s;%(progress.total_bytes)s",
         "-f",
         &chosen_format,
         "-o",
         &out_template,
-        clean_url,
     ]);
+
+    if let Some(ffmpeg_path) = find_ffmpeg_binary() {
+        cmd.args(["--ffmpeg-location", &ffmpeg_path.to_string_lossy()]);
+        cmd.args(["--merge-output-format", "mp4"]);
+    }
+
+    cmd.arg(clean_url);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
     #[cfg(windows)]
@@ -480,8 +525,8 @@ pub async fn start_media_download(
         return Err(AppError::Internal("Download exited with error".to_string()));
     }
 
-    // Locate the finished file in target directory containing the token
-    let mut resolved_file = None;
+    // Locate finished candidates in target directory containing the token
+    let mut candidate_files = Vec::new();
     if let Ok(entries) = std::fs::read_dir(&out_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -491,13 +536,94 @@ pub async fn start_media_download(
                         && !file_name.ends_with(".part")
                         && !file_name.ends_with(".ytdl")
                     {
-                        resolved_file = Some(path);
-                        break;
+                        candidate_files.push(path);
                     }
                 }
             }
         }
     }
+
+    // Sort candidates: prioritize clean merged files without stream fragment indicators (.f)
+    candidate_files.sort_by_key(|p| {
+        let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let is_stream_fragment = name.contains(".f1")
+            || name.contains(".f2")
+            || name.contains(".f3")
+            || name.contains(".f4");
+        let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+        if !is_stream_fragment && ext == "mp4" {
+            0
+        } else if !is_stream_fragment && (ext == "mkv" || ext == "webm") {
+            1
+        } else if !is_stream_fragment && (ext == "m4a" || ext == "mp3") {
+            2
+        } else if !is_stream_fragment {
+            3
+        } else if ext == "mp4" {
+            4
+        } else {
+            5
+        }
+    });
+
+    let resolved_file = if let Some(first) = candidate_files.first().cloned() {
+        let name = first.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let is_stream_fragment = name.contains(".f1")
+            || name.contains(".f2")
+            || name.contains(".f3")
+            || name.contains(".f4");
+
+        if is_stream_fragment {
+            // Safety net: check if both video and audio fragments exist and mux them
+            let v_frag = candidate_files.iter().find(|p| {
+                let n = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                n.ends_with(".mp4") || n.ends_with(".webm")
+            });
+            let a_frag = candidate_files.iter().find(|p| {
+                let n = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                n.ends_with(".m4a") || n.ends_with(".opus") || n.ends_with(".mp3")
+            });
+
+            if let (Some(video_p), Some(audio_p), Some(ffmpeg_bin)) = (v_frag, a_frag, find_ffmpeg_binary()) {
+                let out_merged = out_dir.join(format!("media_{token}.mp4"));
+                let mut mux_cmd = std::process::Command::new(ffmpeg_bin);
+                mux_cmd.args([
+                    "-y",
+                    "-i",
+                    &video_p.to_string_lossy(),
+                    "-i",
+                    &audio_p.to_string_lossy(),
+                    "-c",
+                    "copy",
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "1:a:0",
+                    &out_merged.to_string_lossy(),
+                ]);
+                #[cfg(windows)]
+                mux_cmd.creation_flags(CREATE_NO_WINDOW);
+
+                if let Ok(mux_out) = mux_cmd.output() {
+                    if mux_out.status.success() && out_merged.exists() {
+                        let _ = std::fs::remove_file(video_p);
+                        let _ = std::fs::remove_file(audio_p);
+                        Some(out_merged)
+                    } else {
+                        Some(video_p.clone())
+                    }
+                } else {
+                    Some(video_p.clone())
+                }
+            } else {
+                Some(first)
+            }
+        } else {
+            Some(first)
+        }
+    } else {
+        None
+    };
 
     let file_path = match resolved_file {
         Some(p) => p,
@@ -691,6 +817,37 @@ pub fn open_media_file_folder(file_path: &str) -> Result<(), AppError> {
         if let Some(parent) = p.parent() {
             let _ = std::process::Command::new("xdg-open").arg(parent).spawn();
         }
+    }
+
+    Ok(())
+}
+
+pub fn play_media_externally(file_path: &str) -> Result<(), AppError> {
+    let clean = file_path.trim();
+    if clean.is_empty() {
+        return Err(AppError::Validation(
+            "File path cannot be empty".to_string(),
+        ));
+    }
+
+    let p = Path::new(clean);
+    if !p.exists() {
+        return Err(AppError::Validation(
+            "Media file does not exist on disk".to_string(),
+        ));
+    }
+
+    #[cfg(windows)]
+    {
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.args(["/C", "start", "", clean]);
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let _ = cmd.spawn().map_err(AppError::Io)?;
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = std::process::Command::new("xdg-open").arg(clean).spawn();
     }
 
     Ok(())
