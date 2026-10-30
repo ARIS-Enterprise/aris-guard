@@ -845,25 +845,26 @@ pub fn delete_download_record(id: &str, delete_file: bool, db: &Database) -> Res
 
 pub fn open_media_file_folder(file_path: &str) -> Result<(), AppError> {
     let clean = file_path.trim();
-    if clean.is_empty() {
-        return Err(AppError::Validation(
-            "File path cannot be empty".to_string(),
-        ));
-    }
+    let p = Path::new(clean);
+    let default_dir = get_default_download_directory();
+    let target_dir = if p.is_file() {
+        p.parent().unwrap_or(&default_dir)
+    } else if p.is_dir() {
+        p
+    } else {
+        &default_dir
+    };
 
     #[cfg(windows)]
     {
         let mut cmd = std::process::Command::new("explorer");
-        cmd.arg(format!("/select,\"{clean}\""));
+        cmd.arg(target_dir);
         let _ = cmd.spawn();
     }
 
     #[cfg(not(windows))]
     {
-        let p = Path::new(clean);
-        if let Some(parent) = p.parent() {
-            let _ = std::process::Command::new("xdg-open").arg(parent).spawn();
-        }
+        let _ = std::process::Command::new("xdg-open").arg(target_dir).spawn();
     }
 
     Ok(())
