@@ -3,6 +3,7 @@ import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Protection from "./pages/Protection";
 import Optimizer from "./pages/Optimizer";
+import Downloader from "./pages/Downloader";
 import Quarantine from "./pages/Quarantine";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
@@ -23,6 +24,8 @@ export default function App() {
         return <Protection />;
       case "optimizer":
         return <Optimizer />;
+      case "downloader":
+        return <Downloader />;
       case "quarantine":
         return <Quarantine />;
       case "history":

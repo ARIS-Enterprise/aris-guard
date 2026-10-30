@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
-use windows_registry::{CURRENT_USER, LOCAL_MACHINE, Type};
+use windows_registry::{Type, CURRENT_USER, LOCAL_MACHINE};
 
 use crate::errors::AppError;
 
@@ -26,9 +26,15 @@ fn estimate_publisher(name: &str, path: &str) -> String {
         "Discord Inc.".to_string()
     } else if lower_name.contains("spotify") || lower_path.contains("spotify") {
         "Spotify AB".to_string()
-    } else if lower_name.contains("steam") || lower_path.contains("steam") || lower_path.contains("valve") {
+    } else if lower_name.contains("steam")
+        || lower_path.contains("steam")
+        || lower_path.contains("valve")
+    {
         "Valve Corporation".to_string()
-    } else if lower_name.contains("teams") || lower_name.contains("microsoft") || lower_path.contains("microsoft") {
+    } else if lower_name.contains("teams")
+        || lower_name.contains("microsoft")
+        || lower_path.contains("microsoft")
+    {
         "Microsoft Corporation".to_string()
     } else if lower_name.contains("google") || lower_path.contains("google") {
         "Google LLC".to_string()
@@ -54,7 +60,11 @@ fn estimate_publisher(name: &str, path: &str) -> String {
 }
 
 fn estimate_impact(name: &str, path: &str) -> String {
-    let lower = format!("{} {}", name.to_ascii_lowercase(), path.to_ascii_lowercase());
+    let lower = format!(
+        "{} {}",
+        name.to_ascii_lowercase(),
+        path.to_ascii_lowercase()
+    );
     if lower.contains("aris guard") || lower.contains("--minimized") || lower.contains("tray") {
         "Minimal".to_string()
     } else if lower.contains("discord")
@@ -82,7 +92,9 @@ fn get_startup_approved_map() -> std::collections::HashMap<String, bool> {
     let mut map = std::collections::HashMap::new();
 
     // Check HKCU StartupApproved\Run
-    if let Ok(key) = CURRENT_USER.open(r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run") {
+    if let Ok(key) =
+        CURRENT_USER.open(r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run")
+    {
         if let Ok(values) = key.values() {
             for (val_name, _) in values {
                 if let Ok(val) = key.get_value(&val_name) {
@@ -97,14 +109,17 @@ fn get_startup_approved_map() -> std::collections::HashMap<String, bool> {
     }
 
     // Check HKLM StartupApproved\Run
-    if let Ok(key) = LOCAL_MACHINE.open(r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run") {
+    if let Ok(key) = LOCAL_MACHINE
+        .open(r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run")
+    {
         if let Ok(values) = key.values() {
             for (val_name, _) in values {
                 if let Ok(val) = key.get_value(&val_name) {
                     let bytes = &val[..];
                     if !bytes.is_empty() {
                         let is_enabled = bytes[0] == 0x02;
-                        map.entry(val_name.to_ascii_lowercase()).or_insert(is_enabled);
+                        map.entry(val_name.to_ascii_lowercase())
+                            .or_insert(is_enabled);
                     }
                 }
             }
@@ -166,7 +181,9 @@ pub fn list_startup_apps() -> Vec<StartupAppItem> {
     }
 
     // 3. Registry HKLM WOW6432Node Run
-    if let Ok(key) = LOCAL_MACHINE.open(r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run") {
+    if let Ok(key) =
+        LOCAL_MACHINE.open(r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run")
+    {
         if let Ok(values) = key.values() {
             for (val_name, _) in values {
                 let name_key = val_name.to_ascii_lowercase();
@@ -259,7 +276,9 @@ pub fn toggle_startup_app(target: &str, enabled: bool) -> Result<(), AppError> {
         .map_err(|e| AppError::Internal(format!("Failed to open StartupApproved key: {e}")))?;
 
     let byte0 = if enabled { 0x02u8 } else { 0x03u8 };
-    let mut payload = vec![byte0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    let mut payload = vec![
+        byte0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
 
     // Check if existing binary value exists to preserve timestamp if available
     let lower_val = val_name.to_ascii_lowercase();
@@ -311,7 +330,9 @@ mod tests {
         assert!(restore_res.is_ok());
 
         // Clean up test entry
-        if let Ok(key) = CURRENT_USER.open(r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run") {
+        if let Ok(key) = CURRENT_USER
+            .open(r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run")
+        {
             let _ = key.remove_value("TestMockStartupEntry");
         }
     }

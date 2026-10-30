@@ -4,6 +4,7 @@ use tauri::State;
 use crate::cleaner::{self, CleanupResult, CleanupSummary};
 use crate::config::AppSettings;
 use crate::db::Database;
+use crate::downloader::{self, DownloadRecord, EngineStatus, MediaMetadataResponse};
 use crate::eradicator::{
     self, EradicationAuditReport, EradicationItem, EradicationResult, EradicationTarget,
 };
@@ -256,3 +257,46 @@ pub fn run_batch_scan(
     scanner::run_batch_scan(&scan_type, custom_path.as_deref(), &db)
 }
 
+#[tauri::command]
+pub fn check_downloader_engine_status() -> Result<EngineStatus, AppError> {
+    Ok(downloader::check_downloader_engine_status())
+}
+
+#[tauri::command]
+pub fn probe_media_url(url: String) -> Result<MediaMetadataResponse, AppError> {
+    downloader::probe_media_url(&url)
+}
+
+#[tauri::command]
+pub async fn start_media_download(
+    window: tauri::Window,
+    req: downloader::StartDownloadRequest,
+    db: State<'_, Database>,
+) -> Result<DownloadRecord, AppError> {
+    let db_clone = db.inner().clone();
+    downloader::start_media_download(window, req, db_clone).await
+}
+
+#[tauri::command]
+pub fn cancel_media_download(download_id: String) -> Result<(), AppError> {
+    downloader::cancel_media_download(&download_id)
+}
+
+#[tauri::command]
+pub fn list_downloads_library(db: State<Database>) -> Result<Vec<DownloadRecord>, AppError> {
+    downloader::list_downloads_library(&db)
+}
+
+#[tauri::command]
+pub fn delete_download_record(
+    id: String,
+    delete_file: bool,
+    db: State<Database>,
+) -> Result<(), AppError> {
+    downloader::delete_download_record(&id, delete_file, &db)
+}
+
+#[tauri::command]
+pub fn open_media_file_folder(file_path: String) -> Result<(), AppError> {
+    downloader::open_media_file_folder(&file_path)
+}

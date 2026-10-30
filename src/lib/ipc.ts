@@ -425,5 +425,107 @@ export async function runBatchScan(
   });
 }
 
+export interface MediaFormatOption {
+  format_id: string;
+  label: string;
+  resolution: string;
+  ext: string;
+  filesize_approx?: number;
+  filesize_formatted: string;
+  is_audio_only: boolean;
+}
+
+export interface MediaMetadataResponse {
+  url: string;
+  title: string;
+  thumbnail_url?: string;
+  duration_seconds: number;
+  duration_formatted: string;
+  author: string;
+  extractor: string;
+  formats: MediaFormatOption[];
+}
+
+export interface DownloadProgressPayload {
+  id: string;
+  progress_percent: number;
+  speed_str: string;
+  eta_str: string;
+  downloaded_bytes: number;
+  total_bytes: number;
+  downloaded_formatted: string;
+  total_formatted: string;
+  status: string;
+}
+
+export interface DownloadRecord {
+  id: string;
+  url: string;
+  title: string;
+  thumbnail_url?: string;
+  duration_seconds: number;
+  duration_formatted: string;
+  file_path: string;
+  file_size: number;
+  file_size_formatted: string;
+  resolution: string;
+  format: string;
+  status: string;
+  downloaded_at: string;
+  security_verdict: string;
+}
+
+export interface EngineStatus {
+  is_available: boolean;
+  engine_path?: string;
+  version?: string;
+}
+
+export async function checkDownloaderEngineStatus(): Promise<EngineStatus> {
+  return await invoke<EngineStatus>("check_downloader_engine_status");
+}
+
+export async function probeMediaUrl(
+  url: string,
+): Promise<MediaMetadataResponse> {
+  return await invoke<MediaMetadataResponse>("probe_media_url", { url });
+}
+
+export interface StartDownloadRequest {
+  download_id: string;
+  url: string;
+  title: string;
+  thumbnail_url?: string;
+  duration_seconds: number;
+  format_id?: string;
+  target_dir?: string;
+}
+
+export async function startMediaDownload(
+  req: StartDownloadRequest,
+): Promise<DownloadRecord> {
+  return await invoke<DownloadRecord>("start_media_download", { req });
+}
+
+export async function cancelMediaDownload(downloadId: string): Promise<void> {
+  return await invoke<void>("cancel_media_download", { downloadId });
+}
+
+export async function listDownloadsLibrary(): Promise<DownloadRecord[]> {
+  return await invoke<DownloadRecord[]>("list_downloads_library");
+}
+
+export async function deleteDownloadRecord(
+  id: string,
+  deleteFile: boolean,
+): Promise<void> {
+  return await invoke<void>("delete_download_record", { id, deleteFile });
+}
+
+export async function openMediaFileFolder(filePath: string): Promise<void> {
+  return await invoke<void>("open_media_file_folder", { filePath });
+}
+
+
 
 

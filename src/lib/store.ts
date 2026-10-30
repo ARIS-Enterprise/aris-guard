@@ -20,6 +20,7 @@ export type NavPage =
   | "dashboard"
   | "protection"
   | "optimizer"
+  | "downloader"
   | "quarantine"
   | "history"
   | "settings";

@@ -65,10 +65,8 @@ extern "system" {
         psz_root_path: *const u16,
         dw_flags: u32,
     ) -> i32;
-    fn SHQueryRecycleBinW(
-        psz_root_path: *const u16,
-        p_sh_query_rb_info: *mut SHQueryRBInfo,
-    ) -> i32;
+    fn SHQueryRecycleBinW(psz_root_path: *const u16, p_sh_query_rb_info: *mut SHQueryRBInfo)
+        -> i32;
 }
 
 fn query_recycle_bin() -> (usize, u64) {
@@ -102,14 +100,56 @@ fn get_browser_cache_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
     if let Some(local_data) = dirs::data_local_dir() {
         // Google Chrome
-        paths.push(local_data.join("Google").join("Chrome").join("User Data").join("Default").join("Cache"));
-        paths.push(local_data.join("Google").join("Chrome").join("User Data").join("Default").join("Code Cache"));
+        paths.push(
+            local_data
+                .join("Google")
+                .join("Chrome")
+                .join("User Data")
+                .join("Default")
+                .join("Cache"),
+        );
+        paths.push(
+            local_data
+                .join("Google")
+                .join("Chrome")
+                .join("User Data")
+                .join("Default")
+                .join("Code Cache"),
+        );
         // Microsoft Edge
-        paths.push(local_data.join("Microsoft").join("Edge").join("User Data").join("Default").join("Cache"));
-        paths.push(local_data.join("Microsoft").join("Edge").join("User Data").join("Default").join("Code Cache"));
+        paths.push(
+            local_data
+                .join("Microsoft")
+                .join("Edge")
+                .join("User Data")
+                .join("Default")
+                .join("Cache"),
+        );
+        paths.push(
+            local_data
+                .join("Microsoft")
+                .join("Edge")
+                .join("User Data")
+                .join("Default")
+                .join("Code Cache"),
+        );
         // Brave Browser
-        paths.push(local_data.join("BraveSoftware").join("Brave-Browser").join("User Data").join("Default").join("Cache"));
-        paths.push(local_data.join("BraveSoftware").join("Brave-Browser").join("User Data").join("Default").join("Code Cache"));
+        paths.push(
+            local_data
+                .join("BraveSoftware")
+                .join("Brave-Browser")
+                .join("User Data")
+                .join("Default")
+                .join("Cache"),
+        );
+        paths.push(
+            local_data
+                .join("BraveSoftware")
+                .join("Brave-Browser")
+                .join("User Data")
+                .join("Default")
+                .join("Code Cache"),
+        );
     }
     paths
 }
@@ -203,7 +243,9 @@ pub fn get_cleanup_categories() -> Vec<CleanupCategoryInfo> {
     categories.push(CleanupCategoryInfo {
         id: "system_temp".to_string(),
         name: "Windows System Temp".to_string(),
-        description: "System updates, driver setup, and OS installer residual files in Windows\\Temp".to_string(),
+        description:
+            "System updates, driver setup, and OS installer residual files in Windows\\Temp"
+                .to_string(),
         file_count: st_count,
         size_bytes: st_bytes,
         size_formatted: format_bytes(st_bytes),
@@ -233,7 +275,8 @@ pub fn get_cleanup_categories() -> Vec<CleanupCategoryInfo> {
     categories.push(CleanupCategoryInfo {
         id: "browser_cache".to_string(),
         name: "Browser Web Caches".to_string(),
-        description: "Cached website assets and HTTP caches from Chrome, Edge, and Brave".to_string(),
+        description: "Cached website assets and HTTP caches from Chrome, Edge, and Brave"
+            .to_string(),
         file_count: bc_count,
         size_bytes: bc_bytes,
         size_formatted: format_bytes(bc_bytes),
@@ -410,7 +453,10 @@ mod tests {
     #[test]
     fn test_get_cleanup_categories_includes_all_targets() {
         let cats = get_cleanup_categories();
-        assert!(cats.len() >= 7, "Should include at least 7 cleanup categories");
+        assert!(
+            cats.len() >= 7,
+            "Should include at least 7 cleanup categories"
+        );
         let ids: Vec<String> = cats.into_iter().map(|c| c.id).collect();
         assert!(ids.contains(&"user_temp".to_string()));
         assert!(ids.contains(&"system_temp".to_string()));

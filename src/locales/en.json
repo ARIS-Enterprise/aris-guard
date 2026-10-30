@@ -3,6 +3,7 @@
     "dashboard": "Dashboard",
     "protection": "Protection",
     "optimizer": "Optimizer",
+    "downloader": "Downloader",
     "quarantine": "Quarantine",
     "history": "History",
     "settings": "Settings",
@@ -108,6 +109,24 @@
     "scans": "Scans",
     "cleans": "Cleanups",
     "startup": "Startup Changes"
+  },
+  "downloader": {
+    "title": "Universal Media Downloader & Player",
+    "subtitle": "Download from YouTube, Facebook, Instagram, TikTok, and any web video link with built-in playback and security scan.",
+    "inputPlaceholder": "Paste video or audio link (YouTube, Facebook, Instagram, TikTok, etc.)...",
+    "pasteBtn": "Paste",
+    "analyzeBtn": "Analyze Link",
+    "probing": "Probing URL...",
+    "supportedPlatforms": "Supported",
+    "chooseQuality": "Available Quality & Formats",
+    "downloadNow": "Download Video",
+    "downloadingNow": "Active Download",
+    "libraryTitle": "Downloaded Media Library",
+    "emptyLibraryTitle": "No downloaded media yet",
+    "emptyLibrarySubtitle": "Paste any video link above to download and stream it directly in the app.",
+    "playBtn": "Play",
+    "playVideo": "Play Video",
+    "openFolder": "Open Folder"
   },
   "settings": {
     "title": "Settings",

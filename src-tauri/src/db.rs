@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::errors::AppError;
 
+#[derive(Clone)]
 pub struct Database {
     conn: Arc<Mutex<Connection>>,
 }
@@ -153,6 +154,36 @@ impl Database {
             tracing::info!("Database migrated to schema version 3");
         }
 
+        if current < 4 {
+            let tx = conn.transaction()?;
+            tx.execute_batch(
+                "CREATE TABLE IF NOT EXISTS downloads_library (
+                    id TEXT PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    thumbnail_url TEXT,
+                    duration_seconds INTEGER,
+                    duration_formatted TEXT,
+                    file_path TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    file_size_formatted TEXT NOT NULL,
+                    resolution TEXT,
+                    format TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    downloaded_at TEXT NOT NULL,
+                    security_verdict TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_downloads_created ON downloads_library(downloaded_at);",
+            )?;
+            let now = chrono::Utc::now().to_rfc3339();
+            tx.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
+                params![4, now],
+            )?;
+            tx.commit()?;
+            tracing::info!("Database migrated to schema version 4");
+        }
+
         Ok(())
     }
 }
@@ -166,7 +197,7 @@ mod tests {
         let db = Database::open_in_memory().expect("in-memory db open failed");
         let conn = db.conn.lock().unwrap();
         let version = Database::current_version(&conn).expect("fetch version failed");
-        assert_eq!(version, 3);
+        assert_eq!(version, 4);
 
         let mut stmt = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table'")
@@ -184,5 +215,6 @@ mod tests {
         assert!(tables.contains(&"actions_log".to_string()));
         assert!(tables.contains(&"startup_changes".to_string()));
         assert!(tables.contains(&"app_metadata".to_string()));
+        assert!(tables.contains(&"downloads_library".to_string()));
     }
 }

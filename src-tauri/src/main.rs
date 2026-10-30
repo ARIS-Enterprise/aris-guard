@@ -9,6 +9,7 @@ mod cleaner;
 mod commands;
 mod config;
 mod db;
+mod downloader;
 mod eradicator;
 mod errors;
 mod health;
@@ -182,6 +183,13 @@ fn main() {
             commands::restore_quarantined_item,
             commands::delete_quarantined_item,
             commands::run_batch_scan,
+            commands::check_downloader_engine_status,
+            commands::probe_media_url,
+            commands::start_media_download,
+            commands::cancel_media_download,
+            commands::list_downloads_library,
+            commands::delete_download_record,
+            commands::open_media_file_folder,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ARIS Guard application");

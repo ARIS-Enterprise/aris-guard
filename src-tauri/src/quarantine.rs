@@ -153,7 +153,14 @@ pub fn list_quarantined_items(db: &Database) -> Result<Vec<QuarantineItem>, AppE
         let sha256: String = row.get(3)?;
         let reason: String = row.get(4)?;
         let quarantined_at: String = row.get(5)?;
-        Ok((id, original_path, stored_name, sha256, reason, quarantined_at))
+        Ok((
+            id,
+            original_path,
+            stored_name,
+            sha256,
+            reason,
+            quarantined_at,
+        ))
     })?;
 
     let mut items = Vec::new();
@@ -191,20 +198,26 @@ pub fn restore_quarantined_item(id: &str, db: &Database) -> Result<String, AppEr
         .lock()
         .map_err(|e| AppError::Internal(format!("Failed to lock DB: {e}")))?;
 
-    let mut stmt = guard.prepare(
-        "SELECT original_path, stored_name, sha256 FROM quarantine WHERE id = ?1",
-    )?;
+    let mut stmt =
+        guard.prepare("SELECT original_path, stored_name, sha256 FROM quarantine WHERE id = ?1")?;
 
     let (original_path_str, stored_name, _sha256): (String, String, String) = stmt
-        .query_row(rusqlite::params![id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .query_row(rusqlite::params![id], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
         .map_err(|_| AppError::NotFound(format!("Quarantine entry not found: {id}")))?;
 
     let vault_folder = quarantine_dir();
     let vault_file = vault_folder.join(&stored_name);
 
     if !vault_file.exists() {
-        let _ = guard.execute("DELETE FROM quarantine WHERE id = ?1", rusqlite::params![id]);
-        return Err(AppError::NotFound("Encrypted vault payload was not found on disk.".to_string()));
+        let _ = guard.execute(
+            "DELETE FROM quarantine WHERE id = ?1",
+            rusqlite::params![id],
+        );
+        return Err(AppError::NotFound(
+            "Encrypted vault payload was not found on disk.".to_string(),
+        ));
     }
 
     let encrypted = fs::read(&vault_file)?;
@@ -248,7 +261,10 @@ pub fn restore_quarantined_item(id: &str, db: &Database) -> Result<String, AppEr
         }
     }
     let _ = fs::remove_file(&vault_file);
-    guard.execute("DELETE FROM quarantine WHERE id = ?1", rusqlite::params![id])?;
+    guard.execute(
+        "DELETE FROM quarantine WHERE id = ?1",
+        rusqlite::params![id],
+    )?;
 
     let now = chrono::Utc::now().to_rfc3339();
     let log_id = Uuid::new_v4().to_string();
@@ -276,9 +292,8 @@ pub fn delete_quarantined_item(id: &str, db: &Database) -> Result<String, AppErr
         .lock()
         .map_err(|e| AppError::Internal(format!("Failed to lock DB: {e}")))?;
 
-    let mut stmt = guard.prepare(
-        "SELECT stored_name, original_path FROM quarantine WHERE id = ?1",
-    )?;
+    let mut stmt =
+        guard.prepare("SELECT stored_name, original_path FROM quarantine WHERE id = ?1")?;
 
     let (stored_name, original_path): (String, String) = stmt
         .query_row(rusqlite::params![id], |r| Ok((r.get(0)?, r.get(1)?)))
@@ -306,7 +321,10 @@ pub fn delete_quarantined_item(id: &str, db: &Database) -> Result<String, AppErr
         let _ = fs::remove_file(&vault_file);
     }
 
-    guard.execute("DELETE FROM quarantine WHERE id = ?1", rusqlite::params![id])?;
+    guard.execute(
+        "DELETE FROM quarantine WHERE id = ?1",
+        rusqlite::params![id],
+    )?;
 
     let now = chrono::Utc::now().to_rfc3339();
     let log_id = Uuid::new_v4().to_string();
@@ -335,8 +353,12 @@ mod tests {
         let test_file = temp_dir.join(format!("test_malware_{}.exe", Uuid::new_v4()));
         fs::write(&test_file, b"test dangerous payload bytes").expect("write test file");
 
-        let q_item = quarantine_file(test_file.to_str().unwrap(), "Heuristic Malware Trigger", &db)
-            .expect("quarantine should succeed");
+        let q_item = quarantine_file(
+            test_file.to_str().unwrap(),
+            "Heuristic Malware Trigger",
+            &db,
+        )
+        .expect("quarantine should succeed");
         assert!(!test_file.exists(), "Original file must be removed");
         assert_eq!(q_item.reason, "Heuristic Malware Trigger");
 
@@ -358,4 +380,3 @@ mod tests {
         assert!(!list2.iter().any(|i| i.id == q_item2.id));
     }
 }
-

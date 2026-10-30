@@ -438,8 +438,8 @@ pub fn scan_virtual_payload(
 }
 
 const TARGET_SCAN_EXTENSIONS: &[&str] = &[
-    ".exe", ".msi", ".dll", ".bat", ".cmd", ".ps1", ".vbs", ".scr", ".zip", ".rar", ".7z",
-    ".jar", ".iso", ".vhd", ".com", ".pif", ".cpl", ".wsf",
+    ".exe", ".msi", ".dll", ".bat", ".cmd", ".ps1", ".vbs", ".scr", ".zip", ".rar", ".7z", ".jar",
+    ".iso", ".vhd", ".com", ".pif", ".cpl", ".wsf",
 ];
 
 fn collect_directory_files(
@@ -522,7 +522,9 @@ pub fn run_batch_scan(
                 target_display = path_str.to_string();
                 let dir = Path::new(path_str);
                 if !dir.exists() {
-                    return Err(AppError::NotFound(format!("Path does not exist: {path_str}")));
+                    return Err(AppError::NotFound(format!(
+                        "Path does not exist: {path_str}"
+                    )));
                 }
                 if dir.is_file() {
                     files_to_scan.push(dir.to_path_buf());
@@ -544,7 +546,9 @@ pub fn run_batch_scan(
                     }
                 }
             } else {
-                return Err(AppError::Validation("Custom scan requires a valid folder path".to_string()));
+                return Err(AppError::Validation(
+                    "Custom scan requires a valid folder path".to_string(),
+                ));
             }
         }
         "file" => {
@@ -552,11 +556,15 @@ pub fn run_batch_scan(
                 target_display = path_str.to_string();
                 files_to_scan.push(Path::new(path_str).to_path_buf());
             } else {
-                return Err(AppError::Validation("File scan requires a valid file path".to_string()));
+                return Err(AppError::Validation(
+                    "File scan requires a valid file path".to_string(),
+                ));
             }
         }
         _ => {
-            return Err(AppError::Validation(format!("Unknown scan type: {scan_type}")));
+            return Err(AppError::Validation(format!(
+                "Unknown scan type: {scan_type}"
+            )));
         }
     }
 
@@ -1093,4 +1101,3 @@ mod tests {
         assert_eq!(recheck.len(), 0);
     }
 }
-

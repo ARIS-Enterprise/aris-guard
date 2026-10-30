@@ -177,8 +177,14 @@ fn enumerate_candidate_pids() -> Vec<u32> {
 /// and safe background user processes.
 pub fn boost_memory(db: &Database) -> Result<MemoryBoostResult, AppError> {
     let before_status = query_memory_status();
-    let before_avail = before_status.as_ref().map(|s| s.ull_avail_phys).unwrap_or(0);
-    let total_phys = before_status.as_ref().map(|s| s.ull_total_phys).unwrap_or(16 * 1024 * 1024 * 1024);
+    let before_avail = before_status
+        .as_ref()
+        .map(|s| s.ull_avail_phys)
+        .unwrap_or(0);
+    let total_phys = before_status
+        .as_ref()
+        .map(|s| s.ull_total_phys)
+        .unwrap_or(16 * 1024 * 1024 * 1024);
 
     let mut optimized_count = 0;
 
@@ -213,8 +219,14 @@ pub fn boost_memory(db: &Database) -> Result<MemoryBoostResult, AppError> {
     }
 
     let after_status = query_memory_status();
-    let after_avail = after_status.as_ref().map(|s| s.ull_avail_phys).unwrap_or(before_avail);
-    let load_percent = after_status.as_ref().map(|s| s.dw_memory_load).unwrap_or(45);
+    let after_avail = after_status
+        .as_ref()
+        .map(|s| s.ull_avail_phys)
+        .unwrap_or(before_avail);
+    let load_percent = after_status
+        .as_ref()
+        .map(|s| s.dw_memory_load)
+        .unwrap_or(45);
 
     let mut reclaimed_bytes = after_avail.saturating_sub(before_avail);
 
@@ -351,4 +363,3 @@ mod tests {
         assert!(metrics.cpu_usage_percent >= 0.0);
     }
 }
-
