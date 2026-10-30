@@ -433,6 +433,7 @@ export interface MediaFormatOption {
   filesize_approx?: number;
   filesize_formatted: string;
   is_audio_only: boolean;
+  is_video_only?: boolean;
 }
 
 export interface MediaMetadataResponse {

@@ -31,6 +31,8 @@ pub struct MediaFormatOption {
     pub filesize_approx: Option<u64>,
     pub filesize_formatted: String,
     pub is_audio_only: bool,
+    #[serde(default)]
+    pub is_video_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,48 +296,52 @@ pub fn probe_media_url(url: &str) -> Result<MediaMetadataResponse, AppError> {
         if has_1080 {
             formats.push(MediaFormatOption {
                 format_id: "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080][ext=mp4]/best[height<=1080]/best".to_string(),
-                label: "1080p Full HD".to_string(),
+                label: "1080p Full HD (Video + Audio)".to_string(),
                 resolution: "1920x1080".to_string(),
                 ext: "mp4".to_string(),
                 filesize_approx: None,
                 filesize_formatted: "Standard HD".to_string(),
                 is_audio_only: false,
+                is_video_only: false,
             });
         }
 
         if has_720 || (!has_1080 && !has_480 && !has_360) {
             formats.push(MediaFormatOption {
                 format_id: "bestvideo[vcodec^=avc][height<=720]+bestaudio[acodec^=mp4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720][ext=mp4]/best[height<=720]/best".to_string(),
-                label: "720p HD".to_string(),
+                label: "720p HD (Video + Audio)".to_string(),
                 resolution: "1280x720".to_string(),
                 ext: "mp4".to_string(),
                 filesize_approx: None,
                 filesize_formatted: "Fast Download".to_string(),
                 is_audio_only: false,
+                is_video_only: false,
             });
         }
 
         if has_480 {
             formats.push(MediaFormatOption {
                 format_id: "bestvideo[vcodec^=avc][height<=480]+bestaudio[acodec^=mp4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480][ext=mp4]/best[height<=480]/best".to_string(),
-                label: "480p SD".to_string(),
+                label: "480p SD (Video + Audio)".to_string(),
                 resolution: "854x480".to_string(),
                 ext: "mp4".to_string(),
                 filesize_approx: None,
                 filesize_formatted: "Compact Size".to_string(),
                 is_audio_only: false,
+                is_video_only: false,
             });
         }
 
         if has_360 {
             formats.push(MediaFormatOption {
                 format_id: "bestvideo[vcodec^=avc][height<=360]+bestaudio[acodec^=mp4a]/bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360][ext=mp4]/best[height<=360]/best".to_string(),
-                label: "360p Mobile".to_string(),
+                label: "360p Mobile (Video + Audio)".to_string(),
                 resolution: "640x360".to_string(),
                 ext: "mp4".to_string(),
                 filesize_approx: None,
                 filesize_formatted: "Smallest Size".to_string(),
                 is_audio_only: false,
+                is_video_only: false,
             });
         }
 
@@ -348,18 +354,45 @@ pub fn probe_media_url(url: &str) -> Result<MediaMetadataResponse, AppError> {
             filesize_approx: None,
             filesize_formatted: "High Quality Audio".to_string(),
             is_audio_only: true,
+            is_video_only: false,
         });
+
+        // Always offer Video Only (Silent / No Audio)
+        if has_1080 {
+            formats.push(MediaFormatOption {
+                format_id: "bestvideo[vcodec^=avc][height<=1080]/bestvideo[height<=1080][ext=mp4]/bestvideo[height<=1080]".to_string(),
+                label: "1080p Video Only (Silent)".to_string(),
+                resolution: "1920x1080".to_string(),
+                ext: "mp4".to_string(),
+                filesize_approx: None,
+                filesize_formatted: "Video without Audio".to_string(),
+                is_audio_only: false,
+                is_video_only: true,
+            });
+        } else if has_720 {
+            formats.push(MediaFormatOption {
+                format_id: "bestvideo[vcodec^=avc][height<=720]/bestvideo[height<=720][ext=mp4]/bestvideo[height<=720]".to_string(),
+                label: "720p Video Only (Silent)".to_string(),
+                resolution: "1280x720".to_string(),
+                ext: "mp4".to_string(),
+                filesize_approx: None,
+                filesize_formatted: "Video without Audio".to_string(),
+                is_audio_only: false,
+                is_video_only: true,
+            });
+        }
     }
 
     if formats.is_empty() {
         formats.push(MediaFormatOption {
             format_id: "bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/best[ext=mp4]/best".to_string(),
-            label: "Best Quality Video".to_string(),
+            label: "Best Quality (Video + Audio)".to_string(),
             resolution: "Best Available".to_string(),
             ext: "mp4".to_string(),
             filesize_approx: None,
             filesize_formatted: "Optimal Quality".to_string(),
             is_audio_only: false,
+            is_video_only: false,
         });
     }
 
@@ -633,6 +666,20 @@ pub async fn start_media_download(
             ));
         }
     };
+
+    // Clean up any remaining temporary fragment or stream files with this token
+    if let Ok(entries) = std::fs::read_dir(&out_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() && p != file_path {
+                if let Some(n) = p.file_name().and_then(|name| name.to_str()) {
+                    if n.contains(&token) {
+                        let _ = std::fs::remove_file(&p);
+                    }
+                }
+            }
+        }
+    }
 
     let file_size = std::fs::metadata(&file_path).map(|m| m.len()).unwrap_or(0);
     let file_size_formatted = format_bytes(file_size);

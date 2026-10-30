@@ -16,6 +16,8 @@ import {
   Radio,
   ExternalLink,
   Music,
+  Film,
+  VolumeX,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -440,26 +442,56 @@ export default function Downloader() {
               </h2>
 
               {/* Format / Quality Selector */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-xs font-semibold text-text-muted">
-                  {translate("downloader.chooseQuality", language)}:
-                </span>
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-text-muted">
+                    {translate("downloader.chooseQuality", language)}:
+                  </span>
+                  {selectedFormat && (
+                    <span className="text-[11px] font-mono text-primary font-medium">
+                      Selected: {selectedFormat.label} ({selectedFormat.ext.toUpperCase()})
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   {probeResult.formats.map((fmt) => {
                     const isSelected = selectedFormat?.format_id === fmt.format_id;
+                    const isAudio = fmt.is_audio_only;
+                    const isVideoOnly = fmt.is_video_only;
+
                     return (
                       <button
                         key={fmt.format_id + fmt.label}
                         onClick={() => setSelectedFormat(fmt)}
-                        className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
                           isSelected
-                            ? "border-primary bg-primary text-white shadow-xs"
-                            : "border-border bg-surface-2 text-text hover:border-primary/50"
+                            ? "border-primary bg-primary text-white shadow-sm ring-2 ring-primary/30"
+                            : "border-border bg-surface-2 text-text hover:border-primary/50 hover:bg-surface-2/80"
                         }`}
                       >
+                        {isAudio ? (
+                          <Music
+                            className={`h-3.5 w-3.5 ${isSelected ? "text-white" : "text-amber-400"}`}
+                          />
+                        ) : isVideoOnly ? (
+                          <VolumeX
+                            className={`h-3.5 w-3.5 ${isSelected ? "text-white" : "text-purple-400"}`}
+                          />
+                        ) : (
+                          <Film
+                            className={`h-3.5 w-3.5 ${isSelected ? "text-white" : "text-emerald-400"}`}
+                          />
+                        )}
                         <span>{fmt.label}</span>
-                        <span className="text-[10px] opacity-80 font-mono">
-                          ({fmt.ext.toUpperCase()})
+                        <span
+                          className={`text-[10px] font-mono rounded px-1.5 py-0.5 ${
+                            isSelected
+                              ? "bg-white/20 text-white"
+                              : "bg-black/20 text-text-muted"
+                          }`}
+                        >
+                          {fmt.ext.toUpperCase()}
                         </span>
                       </button>
                     );
